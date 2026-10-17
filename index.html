@@ -220,9 +220,10 @@ ${mi.length>1?`<nav id="bnav">${mi.slice(0,2).map(m=>bitemHtml(m)).join('')}<div
  ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,lap:lapV,pjb:pjbV,bku:bkuV,log:logV})[S.view]()}
 const dlXlsx=p=>dl('data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+p.b64,p.name);
 async function logV(){const r=await run(()=>api('logList',S.t));if(!r)return;
- $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Log Aktivitas</h1><p class="text-xs mb-3" style="color:var(--text-2)">Riwayat login, penerbitan/ubah/hapus Surat Tugas, Kwitansi, Laporan, dan manajemen pengguna. Menampilkan ${r.length} aktivitas terakhir.</p>
+ $('#main').innerHTML=`<div class="flex items-center justify-between flex-wrap gap-2 mb-3"><div><h1 class="text-2xl font-bold">Log Aktivitas</h1><p class="text-xs" style="color:var(--text-2)">Riwayat login, penerbitan/ubah/hapus Surat Tugas, Kwitansi, Laporan, dan manajemen pengguna. Menampilkan ${r.length} aktivitas terakhir.</p></div><button class="btn2" id="logClr" ${r.length?'':'disabled'}><span class="ms">delete_sweep</span> Hapus Log</button></div>
  <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:860px"><thead><tr><th>Waktu</th><th>Pengguna</th><th>Peran</th><th>Aksi</th><th>Detail</th></tr></thead><tbody>
- ${r.map(x=>`<tr><td class="t"><b>${esc(x.waktu)}</b></td><td class="t">${esc(x.pengguna)}</td><td class="t">${esc(x.peran)}</td><td class="t">${esc(x.aksi)}</td><td class="t">${esc(x.detail)}</td></tr>`).join('')||'<tr><td class="t" colspan="5">Belum ada aktivitas tercatat.</td></tr>'}</tbody></table></div>`}
+ ${r.map(x=>`<tr><td class="t"><b>${esc(x.waktu)}</b></td><td class="t">${esc(x.pengguna)}</td><td class="t">${esc(x.peran)}</td><td class="t">${esc(x.aksi)}</td><td class="t">${esc(x.detail)}</td></tr>`).join('')||'<tr><td class="t" colspan="5">Belum ada aktivitas tercatat.</td></tr>'}</tbody></table></div>`;
+ $('#logClr').onclick=async()=>{if(!await confirmDlg('Peringatan!! Seluruh riwayat Log Aktivitas akan dikosongkan dan tidak bisa dipulihkan kembali.\n\nHapus semua data Log Aktivitas?'))return;await run(()=>api('logClear',S.t),'Log Aktivitas dikosongkan');logV()}}
 
 function yrs(){const y=[...new Set(S.d.map(r=>String(r.TglST).slice(0,4)))];if(!y.includes(S.yr))y.push(S.yr);return y.sort()}
 function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new Set(d.map(r=>r.NoST)).size,pg=new Set(d.map(r=>r.NIP)).size,avg=d.length?(d.reduce((a,r)=>a+Number(r.Lama),0)/d.length).toFixed(1):0;
