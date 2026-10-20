@@ -366,14 +366,18 @@ async function pencairanAdminV(){
  document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{const r=await run(()=>api('pengajuanRincian',S.t,b.dataset.r));if(r)pengajuanRincianDlg('Rincian Pengajuan Pencairan',r)})}
 async function pencairanKasubagV(){
  let riw=S.ajuanList;if(!riw){riw=await run(()=>api('pengajuanList',S.t));if(!riw)return;S.ajuanList=riw}
+ let dpa=S.dpaCache[S.yr];if(!dpa){try{dpa=await api('dpaGet',S.t,S.yr);S.dpaCache[S.yr]=dpa}catch(e){dpa=[]}}
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Pengajuan Pencairan Perjalanan Dinas</h1>
+ <div class="glass p-4 mb-4"><b>Sisa Anggaran Tiap Bidang (${S.yr})</b><div class="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-3">
+ ${dpa.map(x=>`<div class="glass2 p-3">${badge(x.Bidang)}<div class="text-xl font-bold mt-2" style="color:${x.Sisa<0?'var(--red)':'var(--accent-text)'}">${rpf(x.Sisa)}</div><div class="text-xs" style="color:var(--text-2)">dari Pagu ${rpf(x.Pagu)}</div></div>`).join('')||'<small style="color:var(--text-2)">Data DPA belum tersedia.</small>'}
+ </div></div>
  <p class="text-xs mb-3" style="color:var(--text-2)">Daftar pengajuan pencairan dari semua Bidang. Setujui atau tolak (wajib disertai catatan) sebelum dana dicairkan.</p>
  <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:900px"><thead><tr><th>Tgl Ajukan</th><th>Bidang</th><th>Surat Tugas</th><th>Jumlah</th><th>Diajukan Oleh</th><th>Status</th><th>Diproses</th><th>Aksi</th></tr></thead><tbody>
  ${riw.map(x=>`<tr><td class="t"><b>${idn(x.tglAjukan)}</b></td><td class="t">${badge(x.bidang)}</td><td class="t">${x.noSTList.length} ST</td><td class="t">${rpf(x.jumlah)}</td><td class="t">${esc(x.diajukanOleh)}</td><td class="t">${ajuanBadge(x.status)}${x.status==='Ditolak'&&x.catatan?`<br><small style="color:var(--text-2)">${esc(x.catatan)}</small>`:''}</td><td class="t">${x.tglProses?`<small>${idn(x.tglProses)}<br>${esc(x.diprosesOleh)}</small>`:'<small style="color:var(--text-2)">-</small>'}</td>
  <td class="t"><div class="flex gap-1 flex-wrap"><button class="btn2" data-r="${esc(x.id)}">Lihat Rincian</button>${x.status==='Diajukan'?`<button class="btn" data-ok="${esc(x.id)}">Setujui</button><button class="btn-d" data-no="${esc(x.id)}">Tolak</button>`:''}</div></td></tr>`).join('')||'<tr><td class="t" colspan="8">Belum ada pengajuan.</td></tr>'}
  </tbody></table></div>`;
  document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{const r=await run(()=>api('pengajuanRincian',S.t,b.dataset.r));if(r)pengajuanRincianDlg('Rincian Pengajuan Pencairan',r)});
- document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!await confirmDlg('Setujui pengajuan pencairan ini?'))return;const done=busy(b,'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,b.dataset.ok,true,''),'Pengajuan disetujui');if(ok){S.ajuanList=null;pencairanV()}}finally{done()}});
+ document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!await confirmDlg('Setujui pengajuan pencairan ini?'))return;const done=busy(b,'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,b.dataset.ok,true,''),'Pengajuan disetujui');if(ok){S.ajuanList=null;S.dpaCache={};pencairanV()}}finally{done()}});
  document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>pengajuanTolakDlg(b.dataset.no))}
 const idnF=s=>{if(!s)return'-';const[y,m,d]=s.split('-');return d+' '+BL[m-1]+' '+y};
 function lapGen(rs){const x=rs[0],tg=x.Berangkat===x.Kembali?idnF(x.Berangkat):idnF(x.Berangkat)+' s.d. '+idnF(x.Kembali);
