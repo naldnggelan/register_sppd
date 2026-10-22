@@ -417,7 +417,7 @@ async function cfgV(){let c=S.cfgCache;if(!c){c=await run(()=>api('getCfg',S.t))
  <div class="glass p-5 mb-4"><b>Kwitansi</b><div class="grid gap-3 md:grid-cols-2 mt-1">${txt('KWI_KODE_REKENING','Kode Rekening bawaan — dipakai jika bidang belum mengisi (pisahkan dengan spasi)',1)}${txt('KWI_PREFIX','Awalan "Sebagai pembayaran" (diikuti Maksud Perjalanan Dinas)',1)}${txt('TARIF_DALAM','Tarif per hari - Dalam Kota (Rp)')}${txt('TARIF_LUAR','Tarif per hari - Luar Kota (Rp)')}${txt('TARIF_LUARDAERAH','Tarif per hari - Luar Daerah (Rp)')}</div></div>
  <button class="btn" id="sc">Simpan Pengaturan</button>
  <div class="glass p-5 mt-6" style="border:1px solid var(--red)"><b style="color:var(--red)">Zona Berbahaya</b>
- <p class="text-xs mt-1" style="color:var(--text-2)">Mengosongkan seluruh Data SPPD, Kwitansi, dan Laporan Perjalanan Dinas, lalu mengembalikan nomor Surat Tugas &amp; SPPD mulai dari awal. Data DPA, Log Aktivitas, Data Master Pegawai, dan Manajemen Pengguna tidak terpengaruh. Tindakan ini tidak bisa dibatalkan.</p>
+ <p class="text-xs mt-1" style="color:var(--text-2)">Mengosongkan seluruh Data SPPD, Kwitansi, Laporan Perjalanan Dinas, Log Aktivitas, dan Pengajuan Pencairan, lalu mengembalikan nomor Surat Tugas &amp; SPPD mulai dari awal. Data DPA, Data Master Pegawai, dan Manajemen Pengguna tidak terpengaruh. Tindakan ini tidak bisa dibatalkan.</p>
  <button class="btn-d mt-3" id="rd">RESET DATA</button></div>`;
  $('#tu').onclick=()=>{const f=$('#tf').files[0];if(!f)return toast('Pilih file PNG terlebih dahulu',1);if(f.type!=='image/png')return toast('File harus berformat PNG',1);if(f.size>700*1024)return toast('Ukuran file maksimal 700 KB',1);
   const fr=new FileReader();fr.onload=async()=>{const u=await run(()=>api('saveTtd',S.t,fr.result),'Tanda tangan tersimpan');if(u){S.cfgCache=null;$('#tp').innerHTML=`<img src="${u}" alt="Tanda tangan" style="max-width:100%;max-height:100%">`}};fr.readAsDataURL(f)};
@@ -426,7 +426,7 @@ async function cfgV(){let c=S.cfgCache;if(!c){c=await run(()=>api('getCfg',S.t))
  $('#rd').onclick=resetDataDlg}
 function resetDataDlg(){const m=document.createElement('div');m.className='modal';
  m.innerHTML=`<div class="glass2 p-6 w-full max-w-md"><h2 class="text-lg font-bold" style="color:var(--red)">RESET DATA</h2>
- <p class="text-sm mt-2">Peringatan!! Tindakan ini akan <b>menghapus seluruh Data SPPD, Kwitansi, dan Laporan Perjalanan Dinas</b>, serta mengembalikan nomor Surat Tugas &amp; SPPD mulai dari awal. Tindakan ini <b>tidak bisa dibatalkan</b>.</p>
+ <p class="text-sm mt-2">Peringatan!! Tindakan ini akan <b>menghapus seluruh Data SPPD, Kwitansi, Laporan Perjalanan Dinas, Log Aktivitas, dan Pengajuan Pencairan</b>, serta mengembalikan nomor Surat Tugas &amp; SPPD mulai dari awal. Tindakan ini <b>tidak bisa dibatalkan</b>.</p>
  <label for="rp1" class="block mt-3">Masukkan sandi akun Anda untuk melanjutkan</label><input id="rp1" type="password" class="inp" autocomplete="current-password">
  <p id="rp2" class="text-xs mt-2" style="color:var(--red)"></p>
  <div class="flex gap-2 justify-end mt-4"><button class="btn2" id="rx">Batal</button><button class="btn-d" id="rk">Reset Data Sekarang</button></div></div>`;
