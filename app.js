@@ -7,7 +7,7 @@ const idn=s=>{if(!s)return'-';const[y,m,d]=s.split('-');return d+' '+BL[m-1].sli
 const addD=(s,n)=>{const[y,m,d]=s.split('-').map(Number),t=new Date(y,m-1,d+n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')};
 const clash=(nip,s,l,ex)=>{l=+l;if(!s||!l)return;const e=addD(s,l-1);return S.jadwal.find(r=>String(r.NIP)===String(nip)&&r.NoST!==ex&&r.Berangkat<=e&&r.Kembali>=s)};
 function warn(a){const w=$('#warn');if(!w)return;w.innerHTML=a.length?`<div class="glass p-3 mb-3" role="alert" style="border:1px solid var(--red);color:var(--red);font-weight:600">${a.map(x=>'⚠ '+esc(x)).join('<br>')}</div>`:'';if(a.length)toast(a[0],1)}
-const msgClash=(n,c)=>{const p=S.pg.find(x=>String(x.NIP)===String(n));return'Pegawai '+(p?p.Nama:n)+' sedang bertugas ('+idn(c.Berangkat)+' – '+idn(c.Kembali)+')'};
+const msgClash=(n,c)=>{const p=S.pg.find(x=>String(x.NIP)===String(n));return'Pegawai '+(p?p.Nama:n)+' sedang bertugas di Bidang '+c.Bidang+' ('+idn(c.Berangkat)+' – '+idn(c.Kembali)+', No. ST: '+c.NoST+')'};
 const warnToast=m=>toast(m,1);
 function refreshPs(){const s=$('#f2').value,l=$('#f3').value,w=[];
  S.pick.filter(n=>clash(n,s,l)).forEach(n=>{w.push(msgClash(n,clash(n,s,l))+' dan dikeluarkan dari daftar.');S.pick=S.pick.filter(x=>x!==n)});
