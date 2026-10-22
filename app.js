@@ -14,7 +14,7 @@ function refreshPs(){const s=$('#f2').value,l=$('#f3').value,w=[];
  $('#ps').innerHTML='<option value="">— Pilih pegawai —</option>'+S.pg.map(p=>{const c=clash(p.NIP,s,l);return`<option value="${esc(p.NIP)}" ${c?'disabled':''}>${esc(p.Nama)}${c?' (sedang bertugas)':''}</option>`}).join('');chips();warn(w)}
 const today=()=>new Date().toISOString().slice(0,10);
 const badge=b=>`<span class="bd" style="background:color-mix(in srgb,var(--b-${(b||'').toLowerCase()}) 12%,transparent);color:var(--b-${(b||'').toLowerCase()})">● ${esc(b)}</span>`;
-const S0=()=>({t:'',role:'',nama:'',d:[],pg:[],us:[],jadwal:[],bidang:'',lap:[],wil:[],foto:'',kwi:[],tarif:{luar:170000,dalam:70000,luarDaerah:450000},logo:'',footer:'',view:'dash',page:1,q:'',fb:'',fm:'',yr:String(new Date().getFullYear()),pick:[],cfgCache:null,dpaCache:{},bkuCache:null,pegCache:null});
+const S0=()=>({t:'',role:'',nama:'',d:[],pg:[],us:[],jadwal:[],bidang:'',lap:[],wil:[],foto:'',kwi:[],tarif:{luar:170000,dalam:70000,luarDaerah:450000},logo:'',footer:'',view:'dash',page:1,q:'',fb:'',fm:'',yr:String(new Date().getFullYear()),pick:[],cfgCache:null,dpaCache:{},bkuCache:null,pegCache:null,maintenance:false});
 let S=S0(),charts=[];
 const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
 async function logout(){const t=S.t;clearInterval(window._pv);store.del('sppd_t');store.del('sppd_v');charts.forEach(c=>c.destroy());charts=[];document.querySelectorAll('.modal').forEach(m=>m.remove());S=S0();loginView();if(t)api('logout',t).catch(()=>{})}
@@ -37,7 +37,8 @@ function confirmDlg(msg,judul){return new Promise(res=>{const m=document.createE
 let _pb=0;
 function pbarShow(){_pb++;const b=$('#pbar');if(!b)return;b.classList.remove('done');requestAnimationFrame(()=>b.classList.add('show'))}
 function pbarHide(){_pb=Math.max(0,_pb-1);if(_pb)return;const b=$('#pbar');if(!b)return;b.classList.add('done');setTimeout(()=>{b.classList.remove('show','done')},350)}
-const run=async(fn,ok)=>{pbarShow();try{const r=await fn();if(ok)toast(ok);return r}catch(e){const m=e.message||String(e);if(/Sesi berakhir/.test(m)){await logout();toast(m,1)}else toast(m,1)}finally{pbarHide()}};
+function maintScreen(msg){$('#app').innerHTML=`<div class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8" style="max-width:420px;width:100%;text-align:center"><span class="ms" style="font-size:52px;color:var(--accent-text)">build</span><h1 class="text-xl font-bold mt-3" style="color:var(--heading)">Sistem Sedang Dalam Perbaikan</h1><p class="mt-2" style="color:var(--text-2)">${esc(msg)}</p><button class="btn mt-5" id="mcb">Coba Lagi</button></div></div>`;$('#mcb').onclick=()=>S.t?restore():loginView()}
+const run=async(fn,ok)=>{pbarShow();try{const r=await fn();if(ok)toast(ok);return r}catch(e){const m=e.message||String(e);if(/Sesi berakhir/.test(m)){await logout();toast(m,1)}else if(/dalam perbaikan/.test(m)){S._maint=true;maintScreen(m)}else toast(m,1)}finally{pbarHide()}};
 function busy(el,label){if(!el)return()=>{};const old=el.innerHTML,dis=el.disabled;el.disabled=true;el.innerHTML=`<span class="spin"></span> ${esc(label||'Memproses…')}`;return()=>{el.disabled=dis;el.innerHTML=old}}
 
 function applyLogin(L){if(!L)return;const q=s=>document.querySelector(s),t=(s,v)=>{const e=q(s);if(e)e.textContent=v};
@@ -54,7 +55,7 @@ function loginView(){$('#app').innerHTML=`<button class="btn2" id="th" aria-labe
 <button class="btn w-full mt-5" id="go">Masuk ke Sistem</button><div id="lf" class="text-center text-xs mt-5" style="color:var(--text-2)"></div></div></div>`;
  const go=async()=>{const uname=$('#u').value,pass=$('#p').value;loadingCard('Masuk ke sistem…');
   const r=await run(()=>api('login',uname,pass));
-  if(!r){loginView();const iu=$('#u');if(iu){iu.value=uname;iu.focus()}return}
+  if(!r){if(S._maint){S._maint=false;return}loginView();const iu=$('#u');if(iu){iu.value=uname;iu.focus()}return}
   Object.assign(S,{t:r.t,role:r.role,nama:r.nama});store.set('sppd_t',r.t);fill(r);
   await loginSuccessAnim();shell()};
  $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#go').onclick=go;$('#p').onkeydown=e=>{if(e.key==='Enter')go()};
@@ -65,10 +66,10 @@ function loginSuccessAnim(){return new Promise(res=>{const d=document.createElem
  d.innerHTML=`<div class="lokcheck"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6"/></svg></div><div class="lokt">LOGIN SUCCESS!!</div>`;
  document.body.appendChild(d);setTimeout(()=>{d.remove();res()},1200)})}
 function stamp(){const e=$('#sy');if(e&&S.at)e.textContent='Diperbarui '+S.at.toLocaleTimeString('id-ID',{hour12:false}).replace(/\./g,':')}
-function fill(r){S.cfgCache=null;S.dpaCache={};S.bkuCache=null;S.pegCache=null;S.ajuanElig=null;S.ajuanList=null;S.ver=r.ver;S.sync=r.sync||60;S.at=new Date();if(r.role){S.role=r.role;S.nama=r.nama}S.bidang=r.bidang||'';S.jadwal=r.jadwal||[];S.d=r.data;S.pg=r.pegawai;S.us=r.users;S.kwi=r.kwi||[];S.lap=r.lap||[];S.wil=r.wilayah||[];S.foto=r.foto||'';S.tarif=r.tarif||S.tarif;S.logo=r.logo;S.footer=r.footer;look(r.look)}
+function fill(r){S.cfgCache=null;S.dpaCache={};S.bkuCache=null;S.pegCache=null;S.ajuanElig=null;S.ajuanList=null;S.maintenance=!!r.maintenance;S.ver=r.ver;S.sync=r.sync||60;S.at=new Date();if(r.role){S.role=r.role;S.nama=r.nama}S.bidang=r.bidang||'';S.jadwal=r.jadwal||[];S.d=r.data;S.pg=r.pegawai;S.us=r.users;S.kwi=r.kwi||[];S.lap=r.lap||[];S.wil=r.wilayah||[];S.foto=r.foto||'';S.tarif=r.tarif||S.tarif;S.logo=r.logo;S.footer=r.footer;look(r.look)}
 async function load(){const r=await run(()=>api('boot',S.t));if(!r)return;fill(r);shell()}
 /* Sinkron otomatis: periksa perubahan Spreadsheet secara berkala; muat ulang data bila berubah */
-async function refresh(silent){let r;try{r=await api('boot',S.t)}catch(e){if(/Sesi berakhir/.test(e.message||''))return logout();if(!silent)toast(e.message||'Gagal memuat data',1);return}
+async function refresh(silent){let r;try{r=await api('boot',S.t)}catch(e){const m=e.message||'';if(/Sesi berakhir/.test(m))return logout();if(/dalam perbaikan/.test(m))return maintScreen(m);if(!silent)toast(m||'Gagal memuat data',1);return}
  fill(r);stamp();if(!silent)toast('Data diperbarui dari Spreadsheet');
  if(S.view==='input'&&$('#ps')){refreshPs();return} // form Input Surat Tugas dilindungi terpisah - tidak di-render ulang penuh supaya draft yang sedang diisi tidak hilang
  if(document.querySelector('.modal'))return; // ada modal (mis. Ubah Surat Tugas) sedang terbuka - jangan ganggu
@@ -79,7 +80,7 @@ async function refresh(silent){let r;try{r=await api('boot',S.t)}catch(e){if(/Se
  const y=scrollY;shell();scrollTo(0,y)}
 async function restore(){const t=store.get('sppd_t'); // pulihkan sesi setelah halaman di-refresh
  if(!t)return loginView();S.t=t;loadingCard('Memuat…');
- try{const r=await api('boot',t);fill(r);const v=store.get('sppd_v');if(v&&menu().some(m=>m[0]===v))S.view=v;shell()}catch(e){store.del('sppd_t');store.del('sppd_v');S=S0();loginView()}}
+ try{const r=await api('boot',t);fill(r);const v=store.get('sppd_v');if(v&&menu().some(m=>m[0]===v))S.view=v;shell()}catch(e){const m=e.message||'';if(/dalam perbaikan/.test(m))return maintScreen(m);store.del('sppd_t');store.del('sppd_v');S=S0();loginView()}}
 
 const menu=()=>S.role==='Pegawai'?[['dash','dashboard','Dashboard & Statistik']]:S.role==='Kasubag Keuangan'?[['dash','dashboard','Dashboard & Statistik'],['dpa','account_balance_wallet','DPA Perjalanan Dinas'],['pencairan','request_quote','Pengajuan Pencairan'],['kwi','receipt_long','Cetak Kwitansi'],['bku','menu_book','Buku Kas Umum (BKU)']]:['KABID','KASI','SEKRETARIS'].includes(S.role)?[['dash','dashboard','Dashboard & Statistik'],['dpa','account_balance_wallet','DPA Perjalanan Dinas'],['bku','menu_book','Buku Kas Umum (BKU)']]:[['dash','dashboard','Dashboard & Statistik'],['rekap','table','Rekap & Data SPPD'],['input','edit_document','Input Surat Tugas & SPPD'],['kwi','receipt_long','Cetak Kwitansi'],['dpa','account_balance_wallet','DPA Perjalanan Dinas'],['pencairan','request_quote','Pengajuan Pencairan'],['lap','summarize','Laporan Perjalanan Dinas'],...(sup()?[['bku','menu_book','Buku Kas Umum (BKU)'],['pegawai','badge','Data Master Pegawai'],['users','manage_accounts','Manajemen Pengguna'],['pjb','draw','Pejabat Penandatangan'],['cfg','print','Pengaturan Cetak'],['log','history','Log Aktivitas']]:[])];
 const BNAV_LABEL={dash:'Dashboard',rekap:'Rekap',input:'Input',kwi:'Kwitansi',dpa:'DPA',pencairan:'Pencairan',lap:'Laporan',bku:'BKU',pegawai:'Pegawai',users:'Pengguna',pjb:'TTD',cfg:'Cetak',log:'Log'};
@@ -119,7 +120,8 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
  const card=(i,l,v,u,k)=>`<div class="stat3d ${k}"><div class="itile3"><span class="ms" style="font-size:22px">${i}</span></div><div class="text-xs mt-3" style="opacity:.9;font-weight:600">${l}</div><div class="text-3xl font-bold mt-1">${v} <span class="text-sm font-normal" style="opacity:.85">${u}</span></div></div>`;
  $('#main').innerHTML=`<div class="hero mb-5 flex flex-wrap justify-between items-center gap-3"><span class="ms" aria-hidden="true" style="position:absolute;right:-22px;top:-30px;font-size:180px;opacity:.12;pointer-events:none;color:#fff">shield</span><div class="flex items-center gap-4" style="position:relative;z-index:1">${S.logo?`<img src="${S.logo}" alt="Logo" style="width:56px;height:56px;object-fit:contain">`:''}<div><div class="text-xs font-bold" style="letter-spacing:.12em;opacity:.85">REGISTER SPPD · SATPOL PP &amp; DAMKAR${S.bidang?' · '+esc(S.bidang).toUpperCase():''}</div><h1 class="text-3xl font-bold"><span id="gr"></span>, ${esc(S.nama)}</h1><p style="color:var(--text-2)">Ringkasan perjalanan dinas tahun ${S.yr}</p></div></div>
  <div class="flex items-center gap-2 flex-wrap" style="position:relative;z-index:1"><div class="glass2 px-4 py-2 flex items-center gap-3"><span class="ms" id="ci" style="font-size:34px;color:var(--accent-text)"></span><div><div id="ck" class="text-2xl font-bold" style="font-variant-numeric:tabular-nums"></div><div id="cd" class="text-xs" style="color:var(--text-2)"></div></div></div></div>
- <div class="flex gap-2" style="position:relative;z-index:1"><select id="yr" class="inp" style="width:auto" aria-label="Tahun">${yrs().map(y=>`<option ${y==S.yr?'selected':''}>${y}</option>`).join('')}</select>${adm()?'<button class="btn" id="nb">+ Buat Surat Tugas</button>':''}</div></div>
+ <div class="flex gap-2" style="position:relative;z-index:1"><select id="yr" class="inp" style="width:auto" aria-label="Tahun">${yrs().map(y=>`<option ${y==S.yr?'selected':''}>${y}</option>`).join('')}</select>${adm()?'<button class="btn" id="nb">+ Buat Surat Tugas</button>':''}${sup()?`<button class="${S.maintenance?'btn-d':'btn2'}" id="mtBtn"><span class="ms">build</span> ${S.maintenance?'Nonaktifkan Mode Perbaikan':'Aktifkan Mode Perbaikan'}</button>`:''}</div></div>
+ ${sup()&&S.maintenance?'<div class="glass p-4 mb-4" style="border:1px solid var(--red);color:var(--red);font-weight:600"><span class="ms" style="vertical-align:-4px">build</span> Mode Perbaikan sedang AKTIF — semua pengguna selain Super Admin tidak dapat menggunakan sistem sampai Anda menonaktifkannya kembali.</div>':''}
  <div class="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-5">${card('description','Total SPPD',d.length,'','s-blue')}${card('mail','Surat Tugas Terbit',st,'','s-green')}${card('directions_walk','Pegawai Bertugas',pg,'orang','s-amber')}${card('schedule','Rata-rata Durasi',avg,'hari','s-rose')}</div>
  <div id="dpaBox" class="mb-5"></div>
  <div class="grid gap-4 lg:grid-cols-3 mb-5"><div class="glass p-5 min-w-0 ${['Admin','Kasubag Keuangan','KABID','KASI'].includes(S.role)?'lg:col-span-3':'lg:col-span-2'}"><b>Tren Penerbitan SPPD Bulanan</b><div style="position:relative;height:240px;max-width:100%;margin-top:.5rem"><canvas id="c1"></canvas></div></div>
@@ -128,6 +130,10 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
  <div class="grid gap-4 md:grid-cols-2 mt-3">${per.map(o=>`<div class="glass p-4"><div class="flex justify-between items-center">${badge(o.b)}<div class="text-right"><span class="text-2xl font-bold">${o.st}</span> <small>perjalanan</small></div></div><div class="text-xs mt-1" style="color:var(--text-2)">${o.pg.length} pegawai bertugas</div>
  <div class="mt-2" style="max-height:220px;overflow:auto">${o.pg.map(([n,c])=>`<div class="flex justify-between py-1" style="border-bottom:1px solid var(--line)"><span>${esc(n)}</span><b>${c}×</b></div>`).join('')||'<small style="color:var(--text-2)">Belum ada perjalanan.</small>'}</div></div>`).join('')}</div></div>`}`;
  if(adm()||['Kasubag Keuangan','KABID','KASI','SEKRETARIS'].includes(S.role))dpaBox();tick();clearInterval(_clk);_clk=setInterval(tick,1000);$('#yr').onchange=e=>{S.yr=e.target.value;dash()};if($('#nb'))$('#nb').onclick=()=>{S.view='input';shell()};
+ if($('#mtBtn'))$('#mtBtn').onclick=async()=>{const turnOn=!S.maintenance;
+  if(turnOn&&!await confirmDlg('Semua pengguna selain Super Admin (Admin, KABID, KASI, SEKRETARIS, Kasubag Keuangan, Pegawai) tidak akan bisa menggunakan sistem sampai Anda menonaktifkan Mode Perbaikan ini kembali.\n\nAktifkan Mode Perbaikan sekarang?','Aktifkan Mode Perbaikan'))return;
+  const done=busy($('#mtBtn'),'Memproses…');
+  try{const ok=await run(()=>api('setMaintenance',S.t,turnOn),turnOn?'Mode Perbaikan diaktifkan':'Mode Perbaikan dinonaktifkan');if(ok!==undefined){S.maintenance=turnOn;dash()}}finally{done()}};
  charts.forEach(c=>c.destroy());const m=Array(12).fill(0),b=BID.map(x=>d.filter(r=>r.Bidang===x).length);d.forEach(r=>m[+String(r.TglST).slice(5,7)-1]++);
  const css=getComputedStyle(document.documentElement),col=v=>css.getPropertyValue(v).trim();
  Chart.defaults.color=col('--text-2');Chart.defaults.borderColor=col('--line');
