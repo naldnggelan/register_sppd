@@ -70,9 +70,13 @@ async function load(){const r=await run(()=>api('boot',S.t));if(!r)return;fill(r
 /* Sinkron otomatis: periksa perubahan Spreadsheet secara berkala; muat ulang data bila berubah */
 async function refresh(silent){let r;try{r=await api('boot',S.t)}catch(e){if(/Sesi berakhir/.test(e.message||''))return logout();if(!silent)toast(e.message||'Gagal memuat data',1);return}
  fill(r);stamp();if(!silent)toast('Data diperbarui dari Spreadsheet');
- const ae=document.activeElement,typing=ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)&&ae.closest('#main'),busy=document.querySelector('.modal')||typing||S.view==='input';
- if(S.view==='input'&&$('#ps')){refreshPs();return}
- if(busy)return;const y=scrollY;shell();scrollTo(0,y)}
+ if(S.view==='input'&&$('#ps')){refreshPs();return} // form Input Surat Tugas dilindungi terpisah - tidak di-render ulang penuh supaya draft yang sedang diisi tidak hilang
+ if(document.querySelector('.modal'))return; // ada modal (mis. Ubah Surat Tugas) sedang terbuka - jangan ganggu
+ // CATATAN: sebelumnya di sini juga ditahan kalau fokus sedang ada di input/select mana pun (mis. kolom cari di Rekap),
+ // tapi itu bikin tombol "Update Data" terlihat tidak melakukan apa-apa saat fokus masih ada di kolom cari - padahal
+ // data di baliknya sebenarnya sudah ter-update, cuma tabelnya tidak ikut digambar ulang. Kolom cari sendiri sudah
+ // menyimpan isiannya di S.q dan menggambar ulang nilainya setiap render, jadi aman untuk digambar ulang di sini.
+ const y=scrollY;shell();scrollTo(0,y)}
 async function restore(){const t=store.get('sppd_t'); // pulihkan sesi setelah halaman di-refresh
  if(!t)return loginView();S.t=t;loadingCard('Memuat…');
  try{const r=await api('boot',t);fill(r);const v=store.get('sppd_v');if(v&&menu().some(m=>m[0]===v))S.view=v;shell()}catch(e){store.del('sppd_t');store.del('sppd_v');S=S0();loginView()}}
