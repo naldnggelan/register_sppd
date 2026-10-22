@@ -60,8 +60,10 @@ function loginView(){$('#app').innerHTML=`<button class="btn2" id="th" aria-labe
   await loginSuccessAnim();shell()};
  $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#go').onclick=go;$('#p').onkeydown=e=>{if(e.key==='Enter')go()};
  $('#pv').onclick=()=>{const ip=$('#p'),show=ip.type==='password';ip.type=show?'text':'password';const b=$('#pv');b.textContent=show?'visibility_off':'visibility';b.title=b.ariaLabel=show?'Sembunyikan kata sandi':'Tampilkan kata sandi'};
- try{applyLogin(JSON.parse(store.get('sppd_login')||'null'))}catch(e){}
- api('publicInfo').then(r=>{look(r&&r.look);if(r&&r.login){store.set('sppd_login',JSON.stringify(r.login));applyLogin(r.login)}if(r&&$('#lf'))$('#lf').textContent=r.footer||'';if(r&&r.logo&&$('#lg'))$('#lg').innerHTML=`<img src="${r.logo}" alt="Logo" style="max-width:100%;max-height:100%">`}).catch(()=>{})}
+ try{applyLogin(JSON.parse(store.get('sppd_login')||'null'))}catch(e){} // pulihkan judul/subjudul tersimpan secara instan, sebelum menunggu jaringan
+ try{look(JSON.parse(store.get('sppd_look')||'null'))}catch(e){} // pulihkan warna & latar tersimpan secara instan juga (sebelumnya hanya teks yang dipulihkan dari cache, warna & logo selalu menunggu publicInfo() - itu sebabnya terasa lama di HP/koneksi lambat)
+ const cl=store.get('sppd_logo');if(cl&&$('#lg'))$('#lg').innerHTML=`<img src="${cl}" alt="Logo" style="max-width:100%;max-height:100%">`; // pulihkan logo tersimpan secara instan juga
+ api('publicInfo').then(r=>{if(!r)return;look(r.look);store.set('sppd_look',JSON.stringify(r.look||{}));if(r.login){store.set('sppd_login',JSON.stringify(r.login));applyLogin(r.login)}if($('#lf'))$('#lf').textContent=r.footer||'';if(r.logo&&$('#lg')){$('#lg').innerHTML=`<img src="${r.logo}" alt="Logo" style="max-width:100%;max-height:100%">`;store.set('sppd_logo',r.logo)}}).catch(()=>{})}
 function loginSuccessAnim(){return new Promise(res=>{const d=document.createElement('div');d.className='loksucc';
  d.innerHTML=`<div class="lokcheck"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6"/></svg></div><div class="lokt">LOGIN SUCCESS!!</div>`;
  document.body.appendChild(d);setTimeout(()=>{d.remove();res()},1200)})}
