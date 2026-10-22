@@ -337,7 +337,7 @@ function inputV(){$('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Form
  $('#sb').onclick=async()=>{if($('#f1').value<today()||$('#f2').value<today())return toast('Tanggal tidak boleh tanggal yang sudah berlalu.',1);
   const sk=$('#f7').selectedOptions[0];
   const f={tgl:$('#f1').value,berangkat:$('#f2').value,lama:$('#f3').value,bidang:$('#f4').value,tujuan:$('#f5').value,maksud:$('#f6').value,nips:S.pick,subKegiatan:sk&&sk.value?sk.dataset.nama:'',jenisPerjalanan:sk&&sk.value?sk.dataset.jenis:''};
-  const r=await run(()=>api('saveST',S.t,f));if(!r)return;toast('Terbit: '+r.noST);S.pick=[];S.view='rekap';await load()}}
+  const r=await run(()=>api('saveST',S.t,f));if(!r)return;toast('Terbit: '+r.noST);S.pick=[];S.view='input';await load();const v=await run(()=>api('previewST',S.t,r.noST));if(v)prev(v,r.noST,'pdfST')}}
 function chips(){$('#chips').innerHTML=S.pick.map((n,i)=>{const p=S.pg.find(x=>String(x.NIP)===n);return`<div class="glass p-3 mb-2 flex justify-between items-center"><div><b>${i+1}. ${esc(p.Nama)}</b><br><small>${esc(p.Pangkat)} · NIP ${esc(p.NIP)} · ${esc(p.Jabatan)}</small></div><button class="btn-d" aria-label="Hapus" onclick="S.pick.splice(${i},1);chips()"><span class="ms">close</span></button></div>`}).join('')||'<small style="color:var(--text-2)">Belum ada pegawai dipilih.</small>'}
 
 async function pegV(){let c=S.pegCache;if(!c){c=await run(()=>api('pegawaiList',S.t));if(!c)return;S.pegCache=c}
