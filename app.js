@@ -1,0 +1,434 @@
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function apiOnce_(f,a,ms){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),ms);try{const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:f,args:a}),signal:ctrl.signal});const text=await res.text();try{return JSON.parse(text)}catch(e){return{success:false,net_:true,message:'Server membalas format tidak dikenal.'}}}catch(e){return{success:false,net_:true,message:e.name==='AbortError'?'Server terlalu lama merespons.':'Koneksi terputus.'}}finally{clearTimeout(timer)}}
+const api=async(f,...a)=>{let r;for(let i=0;i<4;i++){if(i)await new Promise(ok=>setTimeout(ok,i*700));r=await apiOnce_(f,a,i<2?12000:15000);if(r.success)break;if(!r.net_&&r.message!=='Gunakan POST untuk semua permintaan.')break}if(!r.success)throw new Error(r.message||'Terjadi kesalahan.');return r.data};
+const BL=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const BID=['Trantibum','Sekretariat','Linmas','Damkar'];
+const idn=s=>{if(!s)return'-';const[y,m,d]=s.split('-');return d+' '+BL[m-1].slice(0,3)+' '+y};
+const addD=(s,n)=>{const[y,m,d]=s.split('-').map(Number),t=new Date(y,m-1,d+n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')};
+const clash=(nip,s,l,ex)=>{l=+l;if(!s||!l)return;const e=addD(s,l-1);return S.jadwal.find(r=>String(r.NIP)===String(nip)&&r.NoST!==ex&&r.Berangkat<=e&&r.Kembali>=s)};
+function warn(a){const w=$('#warn');if(!w)return;w.innerHTML=a.length?`<div class="glass p-3 mb-3" role="alert" style="border:1px solid var(--red);color:var(--red);font-weight:600">${a.map(x=>'⚠ '+esc(x)).join('<br>')}</div>`:'';if(a.length)toast(a[0],1)}
+const msgClash=(n,c)=>{const p=S.pg.find(x=>String(x.NIP)===String(n));return'Pegawai '+(p?p.Nama:n)+' sedang bertugas ('+idn(c.Berangkat)+' – '+idn(c.Kembali)+')'};
+const warnToast=m=>toast(m,1);
+function refreshPs(){const s=$('#f2').value,l=$('#f3').value,w=[];
+ S.pick.filter(n=>clash(n,s,l)).forEach(n=>{w.push(msgClash(n,clash(n,s,l))+' dan dikeluarkan dari daftar.');S.pick=S.pick.filter(x=>x!==n)});
+ $('#ps').innerHTML='<option value="">— Pilih pegawai —</option>'+S.pg.map(p=>{const c=clash(p.NIP,s,l);return`<option value="${esc(p.NIP)}" ${c?'disabled':''}>${esc(p.Nama)} — ${esc(p.Jabatan)}${c?' (sedang bertugas)':''}</option>`}).join('');chips();warn(w)}
+const today=()=>new Date().toISOString().slice(0,10);
+const badge=b=>`<span class="bd" style="background:color-mix(in srgb,var(--b-${(b||'').toLowerCase()}) 12%,transparent);color:var(--b-${(b||'').toLowerCase()})">● ${esc(b)}</span>`;
+const S0=()=>({t:'',role:'',nama:'',d:[],pg:[],us:[],jadwal:[],bidang:'',lap:[],wil:[],foto:'',kwi:[],tarif:{luar:170000,dalam:70000,luarDaerah:450000},logo:'',footer:'',view:'dash',page:1,q:'',fb:'',fm:'',yr:String(new Date().getFullYear()),pick:[],cfgCache:null,dpaCache:{},bkuCache:null,pegCache:null});
+let S=S0(),charts=[];
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+async function logout(){const t=S.t;clearInterval(window._pv);store.del('sppd_t');store.del('sppd_v');charts.forEach(c=>c.destroy());charts=[];document.querySelectorAll('.modal').forEach(m=>m.remove());S=S0();loginView();if(t)api('logout',t).catch(()=>{})}
+const BIDX=()=>sup()?BID:[S.bidang],adm=()=>S.role==='Admin'||S.role==='Super Admin',sup=()=>S.role==='Super Admin',dpaRO=()=>S.role==='Kasubag Keuangan'; // Kasubag Keuangan: DPA hanya bisa dilihat, tidak bisa diubah
+const dl=(u,n)=>{const A=document.createElement('a');A.href=u;A.download=n;document.body.appendChild(A);A.click();A.remove()};
+const ava=(u,n,s)=>u?`<img src="${esc(u)}" alt="Foto ${esc(n)}" style="width:${s}px;height:${s}px;border-radius:50%;object-fit:cover">`:`<span style="width:${s}px;height:${s}px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--primary);color:#fff;font-weight:700">${esc((n||'?')[0])}</span>`;
+function setTheme(t,save){document.documentElement.dataset.theme=t;const i=$('#thi');if(i)i.textContent=t==='dark'?'light_mode':'dark_mode';if(save)try{localStorage.setItem('theme',t)}catch(e){}}
+let _t0;try{_t0=localStorage.getItem('theme')}catch(e){}
+setTheme(_t0||'dark');
+function look(r){if(!r)return;const s=document.documentElement.style;s.removeProperty('--bg-img');document.documentElement.classList.remove('hasbg');if(/^#[0-9a-f]{3,8}$/i.test(r.warna||''))s.setProperty('--brand',r.warna);if(/^https:\/\//.test(r.bg||'')){s.setProperty('--bg-img','url("'+r.bg+'")');document.documentElement.classList.add('hasbg')}}
+const flip=()=>{setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark',1);if(S.t&&S.view==='dash')dash()};
+let _clk;function tick(){const e=$('#ck');if(!e){clearInterval(_clk);return}const d=new Date(),H=d.getHours(),
+ [g,i]=H>=5&&H<11?['Selamat Pagi','wb_twilight']:H>=11&&H<15?['Selamat Siang','wb_sunny']:H>=15&&H<18?['Selamat Sore','partly_cloudy_day']:['Selamat Malam','bedtime'];
+ $('#gr').textContent=g;$('#ci').textContent=i;e.textContent=d.toLocaleTimeString('id-ID',{hour12:false}).replace(/\./g,':');
+ $('#cd').textContent=d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+function toast(m,e){const t=$('#toast');t.innerHTML=`<div class="toast ${e?'err':''}" role="status">${esc(m)}</div>`;clearTimeout(window._tt);window._tt=setTimeout(()=>t.innerHTML='',e?8000:3500)}
+function confirmDlg(msg,judul){return new Promise(res=>{const m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<div class="glass2 p-4" style="max-width:420px;width:100%"><b>${esc(judul||'Konfirmasi')}</b><p class="text-sm mt-2" style="white-space:pre-line">${esc(msg)}</p><div class="flex justify-end gap-2 mt-3"><button class="btn2" id="cdNo">Batal</button><button class="btn-d" id="cdYes">OK</button></div></div>`;
+ document.body.appendChild(m);const done=v=>{m.remove();res(v)};m.querySelector('#cdNo').onclick=()=>done(false);m.querySelector('#cdYes').onclick=()=>done(true);m.onclick=e=>{if(e.target===m)done(false)}})}
+let _pb=0;
+function pbarShow(){_pb++;const b=$('#pbar');if(!b)return;b.classList.remove('done');requestAnimationFrame(()=>b.classList.add('show'))}
+function pbarHide(){_pb=Math.max(0,_pb-1);if(_pb)return;const b=$('#pbar');if(!b)return;b.classList.add('done');setTimeout(()=>{b.classList.remove('show','done')},350)}
+const run=async(fn,ok)=>{pbarShow();try{const r=await fn();if(ok)toast(ok);return r}catch(e){const m=e.message||String(e);if(/Sesi berakhir/.test(m)){await logout();toast(m,1)}else toast(m,1)}finally{pbarHide()}};
+function busy(el,label){if(!el)return()=>{};const old=el.innerHTML,dis=el.disabled;el.disabled=true;el.innerHTML=`<span class="spin"></span> ${esc(label||'Memproses…')}`;return()=>{el.disabled=dis;el.innerHTML=old}}
+
+function applyLogin(L){if(!L)return;const q=s=>document.querySelector(s),t=(s,v)=>{const e=q(s);if(e)e.textContent=v};
+ const b=q('#lb');if(b){b.textContent=L.badge||'';b.style.display=L.badge?'':'none'}
+ t('#lt',L.judul);t('#ls',L.sub);t('#lu',L.lblUser);t('#lp',L.lblPass);t('#go',L.tombol);
+ const w=q('#lw');if(w){w.style.justifyContent=L.posisi==='Kiri'?'flex-start':L.posisi==='Kanan'?'flex-end':'center';w.style.paddingInline='clamp(1rem,6vw,5rem)'}
+ const g=q('#lg');if(g&&L.logoSize){g.style.width=g.style.height=L.logoSize+'px'}
+ if(/^https:\/\//.test(L.bg||'')){const s=document.documentElement.style;s.setProperty('--bg-img','url("'+L.bg+'")');document.documentElement.classList.add('hasbg')}}
+function loadingCard(msg){$('#app').innerHTML=`<div class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8" style="min-width:260px;text-align:center"><div class="spin-lg"></div><div class="font-semibold" style="color:var(--heading)">${esc(msg)}</div><div class="text-xs mt-1" style="color:var(--text-2)">REGISTER SPPD</div></div></div>`}
+function loginView(){$('#app').innerHTML=`<button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema" style="position:fixed;top:12px;right:12px;z-index:5"><span class="ms" id="thi"></span></button><div id="lw" class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8 w-full max-w-md">
+<div class="text-center"><div id="lg" style="width:84px;height:84px;margin:0 auto" class="flex items-center justify-center"><div style="background:var(--primary);color:#fff;width:64px;height:64px;border-radius:16px" class="flex items-center justify-center"><span class="ms" style="font-size:34px">assignment_turned_in</span></div></div>
+<div id="lb" class="text-xs font-bold mt-3" style="letter-spacing:.1em;color:var(--accent-text);display:none"></div><h1 id="lt" class="text-2xl font-bold mt-1" style="color:var(--heading)">REGISTER SPPD</h1><p id="ls" style="color:var(--text-2)">Penomoran & Registrasi Surat Tugas / SPPD</p></div>
+<label id="lu" for="u">Username / NIP</label><input id="u" class="inp" autocomplete="username"><label id="lp" for="p">Kata Sandi</label><div style="position:relative"><input id="p" type="password" class="inp" autocomplete="current-password" style="padding-right:2.6rem"><button type="button" id="pv" class="ms" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" style="position:absolute;right:.4rem;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;color:var(--text-2);padding:.3rem;line-height:1">visibility</button></div>
+<button class="btn w-full mt-5" id="go">Masuk ke Sistem</button><div id="lf" class="text-center text-xs mt-5" style="color:var(--text-2)"></div></div></div>`;
+ const go=async()=>{const uname=$('#u').value,pass=$('#p').value;loadingCard('Masuk ke sistem…');
+  const r=await run(()=>api('login',uname,pass));
+  if(!r){loginView();const iu=$('#u');if(iu){iu.value=uname;iu.focus()}return}
+  Object.assign(S,{t:r.t,role:r.role,nama:r.nama});store.set('sppd_t',r.t);fill(r);
+  await loginSuccessAnim();shell()};
+ $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#go').onclick=go;$('#p').onkeydown=e=>{if(e.key==='Enter')go()};
+ $('#pv').onclick=()=>{const ip=$('#p'),show=ip.type==='password';ip.type=show?'text':'password';const b=$('#pv');b.textContent=show?'visibility_off':'visibility';b.title=b.ariaLabel=show?'Sembunyikan kata sandi':'Tampilkan kata sandi'};
+ try{applyLogin(JSON.parse(store.get('sppd_login')||'null'))}catch(e){}
+ api('publicInfo').then(r=>{look(r&&r.look);if(r&&r.login){store.set('sppd_login',JSON.stringify(r.login));applyLogin(r.login)}if(r&&$('#lf'))$('#lf').textContent=r.footer||'';if(r&&r.logo&&$('#lg'))$('#lg').innerHTML=`<img src="${r.logo}" alt="Logo" style="max-width:100%;max-height:100%">`}).catch(()=>{})}
+function loginSuccessAnim(){return new Promise(res=>{const d=document.createElement('div');d.className='loksucc';
+ d.innerHTML=`<div class="lokcheck"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6"/></svg></div><div class="lokt">LOGIN SUCCESS!!</div>`;
+ document.body.appendChild(d);setTimeout(()=>{d.remove();res()},1200)})}
+function stamp(){const e=$('#sy');if(e&&S.at)e.textContent='Diperbarui '+S.at.toLocaleTimeString('id-ID',{hour12:false}).replace(/\./g,':')}
+function fill(r){S.cfgCache=null;S.dpaCache={};S.bkuCache=null;S.pegCache=null;S.ajuanElig=null;S.ajuanList=null;S.ver=r.ver;S.sync=r.sync||60;S.at=new Date();if(r.role){S.role=r.role;S.nama=r.nama}S.bidang=r.bidang||'';S.jadwal=r.jadwal||[];S.d=r.data;S.pg=r.pegawai;S.us=r.users;S.kwi=r.kwi||[];S.lap=r.lap||[];S.wil=r.wilayah||[];S.foto=r.foto||'';S.tarif=r.tarif||S.tarif;S.logo=r.logo;S.footer=r.footer;look(r.look)}
+async function load(){const r=await run(()=>api('boot',S.t));if(!r)return;fill(r);shell()}
+/* Sinkron otomatis: periksa perubahan Spreadsheet secara berkala; muat ulang data bila berubah */
+async function refresh(silent){let r;try{r=await api('boot',S.t)}catch(e){if(/Sesi berakhir/.test(e.message||''))return logout();if(!silent)toast(e.message||'Gagal memuat data',1);return}
+ fill(r);stamp();if(!silent)toast('Data diperbarui dari Spreadsheet');
+ const ae=document.activeElement,typing=ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)&&ae.closest('#main'),busy=document.querySelector('.modal')||typing||S.view==='input';
+ if(S.view==='input'&&$('#ps')){refreshPs();return}
+ if(busy)return;const y=scrollY;shell();scrollTo(0,y)}
+async function restore(){const t=store.get('sppd_t'); // pulihkan sesi setelah halaman di-refresh
+ if(!t)return loginView();S.t=t;loadingCard('Memuat…');
+ try{const r=await api('boot',t);fill(r);const v=store.get('sppd_v');if(v&&menu().some(m=>m[0]===v))S.view=v;shell()}catch(e){store.del('sppd_t');store.del('sppd_v');S=S0();loginView()}}
+
+const menu=()=>S.role==='Pegawai'?[['dash','dashboard','Dashboard & Statistik']]:S.role==='Kasubag Keuangan'?[['dash','dashboard','Dashboard & Statistik'],['dpa','account_balance_wallet','DPA Perjalanan Dinas'],['pencairan','request_quote','Pengajuan Pencairan'],['kwi','receipt_long','Cetak Kwitansi'],['bku','menu_book','Buku Kas Umum (BKU)']]:['KABID','KASI','SEKRETARIS'].includes(S.role)?[['dash','dashboard','Dashboard & Statistik'],['dpa','account_balance_wallet','DPA Perjalanan Dinas'],['bku','menu_book','Buku Kas Umum (BKU)']]:[['dash','dashboard','Dashboard & Statistik'],['rekap','table','Rekap & Data SPPD'],['input','edit_document','Input Surat Tugas & SPPD'],['kwi','receipt_long','Cetak Kwitansi'],['dpa','account_balance_wallet','DPA Perjalanan Dinas'],['pencairan','request_quote','Pengajuan Pencairan'],['lap','summarize','Laporan Perjalanan Dinas'],...(sup()?[['bku','menu_book','Buku Kas Umum (BKU)'],['pegawai','badge','Data Master Pegawai'],['users','manage_accounts','Manajemen Pengguna'],['pjb','draw','Pejabat Penandatangan'],['cfg','print','Pengaturan Cetak'],['log','history','Log Aktivitas']]:[])];
+const BNAV_LABEL={dash:'Dashboard',rekap:'Rekap',input:'Input',kwi:'Kwitansi',dpa:'DPA',pencairan:'Pencairan',lap:'Laporan',bku:'BKU',pegawai:'Pegawai',users:'Pengguna',pjb:'TTD',cfg:'Cetak',log:'Log'};
+fetch('app-data.json').then(r=>r.json()).then(j=>{if(j&&j.navLabels)Object.assign(BNAV_LABEL,j.navLabels)}).catch(()=>{}); // opsional - timpa label navigasi bawah bila app-data.json ada isinya; gagal/tidak ada file = tetap pakai label bawaan di atas, tidak memengaruhi apa pun
+const bLbl=m=>BNAV_LABEL[m[0]]||m[2].split(' ')[0];
+const bitemHtml=(m,cls)=>`<div class="${cls||'bitem'} ${S.view===m[0]?'on':''}" data-v="${m[0]}" role="button" tabindex="0"><span class="ms">${m[1]}</span><span>${bLbl(m)}</span></div>`;
+function bmenuSheet(){const mi=menu();const ov=document.createElement('div');ov.className='bscrim';
+ const sh=document.createElement('div');sh.className='bsheet';
+ sh.innerHTML=`<div class="flex items-center justify-between mb-3"><b style="color:var(--heading)">Menu</b><button class="btn2" id="bsx" aria-label="Tutup">Tutup</button></div><div class="grid4">${mi.map(m=>bitemHtml(m,'bitem2')).join('')}</div>`;
+ document.body.appendChild(ov);document.body.appendChild(sh);
+ const close=()=>{ov.remove();sh.remove()};
+ ov.onclick=close;sh.querySelector('#bsx').onclick=close;
+ sh.querySelectorAll('.bitem2').forEach(n=>n.onclick=()=>{close();if(n.classList.contains('on'))return;S.view=n.dataset.v;S.page=1;shell()})}
+function shell(){store.set('sppd_v',S.view);const mi=menu(),sc=store.get('sppd_side')==='1';$('#app').innerHTML=`<div class="flex gap-3 p-3" style="min-height:100vh"><aside id="side" class="glass p-3 shrink-0 flex flex-col${sc?' collapsed':''}">
+<div class="p-3 mb-2 flex items-center gap-3 sb-brand">${S.logo?`<img src="${S.logo}" alt="Logo" style="width:40px;height:40px;object-fit:contain;flex:none">`:''}<div class="sb-text"><b style="color:var(--heading);font-size:16px">REGISTER SPPD</b><div class="text-xs" style="color:var(--text-2)">Satpol PP & Damkar</div></div></div>
+${mi.map(m=>`<div class="nav ${S.view===m[0]?'on':''}" data-v="${m[0]}" role="button" tabindex="0" title="${m[2]}"><span class="ms">${m[1]}</span><span class="nav-label">${m[2]}</span></div>`).join('')}
+<div class="glass p-3 mt-auto text-xs sb-foot"><div class="flex items-center gap-3">${ava(S.foto,S.nama,40)}<div class="sb-text"><b>${esc(S.nama)}</b><br>${esc(S.role)}${S.bidang?' · '+esc(S.bidang):''}</div></div></div></aside>
+<main class="flex-1 min-w-0"><div class="glass flex items-center flex-wrap gap-2 px-3 py-2 mb-3" style="border-radius:1rem"><button class="btn2" id="tg" aria-label="Ciutkan atau perluas sidebar" title="Ciutkan atau perluas sidebar"><span class="ms" id="tgi">${sc?'menu':'menu_open'}</span></button>
+<b class="text-lg sm:text-xl" style="min-width:0">${esc(menu().find(m=>m[0]===S.view)[2])}</b><div class="flex items-center gap-2" style="margin-left:auto"><button class="btn2" id="rf" aria-label="Update Data" title="Update Data"><span class="ms">sync</span> <span class="hidden sm:inline">Update Data</span></button><button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema"><span class="ms" id="thi"></span></button><button class="btn2" onclick="logout()" aria-label="Keluar" title="Keluar"><span class="ms">logout</span> Keluar</button></div></div><div id="main" class="fadein"></div><footer class="text-center text-xs mt-10 pb-2" style="color:var(--text-2)">${esc(S.footer)}</footer></main>
+${mi.length>1?`<nav id="bnav">${mi.slice(0,2).map(m=>bitemHtml(m)).join('')}<div class="bfab" id="bmore" role="button" tabindex="0" aria-label="Menu lainnya" title="Menu lainnya"><span class="ms">apps</span></div>${mi.slice(-2).map(m=>bitemHtml(m)).join('')}</nav>`:''}</div>`;
+ function sideToggle(){const s=$('#side');s.classList.toggle('collapsed');const on=s.classList.contains('collapsed');store.set('sppd_side',on?'1':'0');const ic=$('#tgi');if(ic)ic.textContent=on?'menu':'menu_open'}
+ $('#tg').onclick=sideToggle;
+ if($('#bmore'))$('#bmore').onclick=bmenuSheet;
+ document.querySelectorAll('.nav,.bitem').forEach(n=>n.onclick=()=>{if(n.classList.contains('on'))return;S.view=n.dataset.v;S.page=1;shell()});
+ $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#rf').onclick=()=>refresh(false);stamp();
+ ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,pencairan:pencairanV,lap:lapV,pjb:pjbV,bku:bkuV,log:logV})[S.view]()}
+const dlXlsx=p=>dl('data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+p.b64,p.name);
+async function logV(){const r=await run(()=>api('logList',S.t));if(!r)return;
+ $('#main').innerHTML=`<div class="flex items-center justify-between flex-wrap gap-2 mb-3"><div><h1 class="text-2xl font-bold">Log Aktivitas</h1><p class="text-xs" style="color:var(--text-2)">Riwayat login, penerbitan/ubah/hapus Surat Tugas, Kwitansi, Laporan, dan manajemen pengguna. Menampilkan ${r.length} aktivitas terakhir.</p></div><button class="btn2" id="logClr" ${r.length?'':'disabled'}><span class="ms">delete_sweep</span> Hapus Log</button></div>
+ <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:860px"><thead><tr><th>Waktu</th><th>Pengguna</th><th>Peran</th><th>Aksi</th><th>Detail</th></tr></thead><tbody>
+ ${r.map(x=>`<tr><td class="t"><b>${esc(x.waktu)}</b></td><td class="t">${esc(x.pengguna)}</td><td class="t">${esc(x.peran)}</td><td class="t">${esc(x.aksi)}</td><td class="t">${esc(x.detail)}</td></tr>`).join('')||'<tr><td class="t" colspan="5">Belum ada aktivitas tercatat.</td></tr>'}</tbody></table></div>`;
+ $('#logClr').onclick=async()=>{if(!await confirmDlg('Peringatan!! Seluruh riwayat Log Aktivitas akan dikosongkan dan tidak bisa dipulihkan kembali.\n\nHapus semua data Log Aktivitas?'))return;await run(()=>api('logClear',S.t),'Log Aktivitas dikosongkan');logV()}}
+
+function yrs(){const y=[...new Set(S.d.map(r=>String(r.TglST).slice(0,4)))];if(!y.includes(S.yr))y.push(S.yr);return y.sort()}
+function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new Set(d.map(r=>r.NoST)).size,pg=new Set(d.map(r=>r.NIP)).size,avg=d.length?(d.reduce((a,r)=>a+Number(r.Lama),0)/d.length).toFixed(1):0;
+ const per=(S.bidang?[S.bidang]:BID).map(b=>{const rs=d.filter(r=>r.Bidang===b),m={};rs.forEach(r=>m[r.Nama]=(m[r.Nama]||0)+1);return{b,st:new Set(rs.map(r=>r.NoST)).size,pg:Object.entries(m).sort((x,y)=>y[1]-x[1]||x[0].localeCompare(y[0]))}});
+ const card=(i,l,v,u,k)=>`<div class="stat3d ${k}"><div class="itile3"><span class="ms" style="font-size:22px">${i}</span></div><div class="text-xs mt-3" style="opacity:.9;font-weight:600">${l}</div><div class="text-3xl font-bold mt-1">${v} <span class="text-sm font-normal" style="opacity:.85">${u}</span></div></div>`;
+ $('#main').innerHTML=`<div class="hero mb-5 flex flex-wrap justify-between items-center gap-3"><span class="ms" aria-hidden="true" style="position:absolute;right:-22px;top:-30px;font-size:180px;opacity:.12;pointer-events:none;color:#fff">shield</span><div class="flex items-center gap-4" style="position:relative;z-index:1">${S.logo?`<img src="${S.logo}" alt="Logo" style="width:56px;height:56px;object-fit:contain">`:''}<div><div class="text-xs font-bold" style="letter-spacing:.12em;opacity:.85">REGISTER SPPD · SATPOL PP &amp; DAMKAR${S.bidang?' · '+esc(S.bidang).toUpperCase():''}</div><h1 class="text-3xl font-bold"><span id="gr"></span>, ${esc(S.nama)}</h1><p style="color:var(--text-2)">Ringkasan perjalanan dinas tahun ${S.yr}</p></div></div>
+ <div class="flex items-center gap-2 flex-wrap" style="position:relative;z-index:1"><div class="glass2 px-4 py-2 flex items-center gap-3"><span class="ms" id="ci" style="font-size:34px;color:var(--accent-text)"></span><div><div id="ck" class="text-2xl font-bold" style="font-variant-numeric:tabular-nums"></div><div id="cd" class="text-xs" style="color:var(--text-2)"></div></div></div></div>
+ <div class="flex gap-2" style="position:relative;z-index:1"><select id="yr" class="inp" style="width:auto" aria-label="Tahun">${yrs().map(y=>`<option ${y==S.yr?'selected':''}>${y}</option>`).join('')}</select>${adm()?'<button class="btn" id="nb">+ Buat Surat Tugas</button>':''}</div></div>
+ <div class="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-5">${card('description','Total SPPD',d.length,'','s-blue')}${card('mail','Surat Tugas Terbit',st,'','s-green')}${card('directions_walk','Pegawai Bertugas',pg,'orang','s-amber')}${card('schedule','Rata-rata Durasi',avg,'hari','s-rose')}</div>
+ <div id="dpaBox" class="mb-5"></div>
+ <div class="grid gap-4 lg:grid-cols-3 mb-5"><div class="glass p-5 min-w-0 ${['Admin','Kasubag Keuangan','KABID','KASI'].includes(S.role)?'lg:col-span-3':'lg:col-span-2'}"><b>Tren Penerbitan SPPD Bulanan</b><div style="position:relative;height:240px;max-width:100%;margin-top:.5rem"><canvas id="c1"></canvas></div></div>
+ ${['Admin','Kasubag Keuangan','KABID','KASI'].includes(S.role)?'':'<div class="glass p-5 min-w-0"><b>Per Bidang</b><div style="position:relative;height:240px;max-width:100%;margin-top:.5rem"><canvas id="c2"></canvas></div></div>'}</div>
+ ${S.role==='Kasubag Keuangan'?'':`<div class="glass p-5"><b>Jumlah Perjalanan per Bidang</b><p class="text-xs" style="color:var(--text-2)">Surat Tugas yang diterbitkan dan jumlah perjalanan setiap pegawai tahun ${S.yr}</p>
+ <div class="grid gap-4 md:grid-cols-2 mt-3">${per.map(o=>`<div class="glass p-4"><div class="flex justify-between items-center">${badge(o.b)}<div class="text-right"><span class="text-2xl font-bold">${o.st}</span> <small>perjalanan</small></div></div><div class="text-xs mt-1" style="color:var(--text-2)">${o.pg.length} pegawai bertugas</div>
+ <div class="mt-2" style="max-height:220px;overflow:auto">${o.pg.map(([n,c])=>`<div class="flex justify-between py-1" style="border-bottom:1px solid var(--line)"><span>${esc(n)}</span><b>${c}×</b></div>`).join('')||'<small style="color:var(--text-2)">Belum ada perjalanan.</small>'}</div></div>`).join('')}</div></div>`}`;
+ if(adm()||['Kasubag Keuangan','KABID','KASI','SEKRETARIS'].includes(S.role))dpaBox();tick();clearInterval(_clk);_clk=setInterval(tick,1000);$('#yr').onchange=e=>{S.yr=e.target.value;dash()};if($('#nb'))$('#nb').onclick=()=>{S.view='input';shell()};
+ charts.forEach(c=>c.destroy());const m=Array(12).fill(0),b=BID.map(x=>d.filter(r=>r.Bidang===x).length);d.forEach(r=>m[+String(r.TglST).slice(5,7)-1]++);
+ const css=getComputedStyle(document.documentElement),col=v=>css.getPropertyValue(v).trim();
+ Chart.defaults.color=col('--text-2');Chart.defaults.borderColor=col('--line');
+ charts=[new Chart($('#c1'),{type:'line',data:{labels:BL.map(x=>x.slice(0,3)),datasets:[{label:'SPPD',data:m,borderColor:col('--accent-text'),backgroundColor:'rgba(16,185,129,.15)',fill:true,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}),
+ ...($('#c2')?[new Chart($('#c2'),{type:'doughnut',data:{labels:BID,datasets:[{data:b,backgroundColor:[col('--blue'),col('--teal'),col('--amber'),col('--red')]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}})]:[])]}
+
+function filt(){const q=S.q.toLowerCase();return S.d.filter(r=>(!q||[r.Nama,r.NIP,r.NoST,r.NoSPPD,r.Tujuan].join(' ').toLowerCase().includes(q))&&(!S.fb||r.Bidang===S.fb)&&(!S.fm||String(r.TglST).slice(0,7)===S.fm)).sort((a,b)=>String(b.TglST).localeCompare(a.TglST))}
+function groups(){const m=new Map();filt().forEach(r=>{if(!m.has(r.NoST))m.set(r.NoST,[]);m.get(r.NoST).push(r)});return[...m.keys()]}
+function rekap(){const g=groups(),n=10,pgs=Math.max(1,Math.ceil(g.length/n));S.page=Math.min(S.page,pgs);const v=g.slice((S.page-1)*n,S.page*n);
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3 flex items-center gap-2 flex-wrap">Rekapitulasi Surat Tugas & SPPD<button class="btn2" id="xx" style="font-size:.8rem"><span class="ms">download</span> Export Excel</button></h1><div class="glass p-4 mb-4 grid gap-3 md:grid-cols-3">
+ <div class="md:col-span-3"><input id="q" class="inp" placeholder="Cari nama pegawai, NIP, nomor surat/SPPD, atau tujuan…" value="${esc(S.q)}" aria-label="Cari"></div>
+ <select id="fb" class="inp" aria-label="Bidang"><option value="">Semua Bidang</option>${BID.map(b=>`<option ${S.fb==b?'selected':''}>${b}</option>`).join('')}</select>
+ <input id="fm" type="month" class="inp" value="${S.fm}" aria-label="Bulan"><button class="btn2" id="rs">Reset Filter</button></div>
+ <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:980px"><thead><tr><th>No</th><th>Tgl Surat Tugas</th><th>No. Surat Tugas</th><th>No. SPPD</th><th>Bidang</th><th>Tujuan</th><th>Maksud Perjalanan Dinas</th><th>Lama</th><th>Aksi</th></tr></thead><tbody>
+ ${v.map((k,i)=>{const all=S.d.filter(r=>r.NoST===k),x=all[0],nm=all.map(r=>+String(r.NoSPPD).split(' / ')[2]).filter(Boolean),rg=nm.length>1?Math.min(...nm)+' – '+Math.max(...nm):(nm[0]||'-');
+ return`<tr><td class="t">${(S.page-1)*n+i+1}</td><td class="t"><b>${idn(x.TglST)}</b></td><td class="t">${esc(k)}</td><td class="t">${rg}<br><small>${all.length} pegawai</small></td><td class="t">${badge(x.Bidang)}</td><td class="t">${esc(x.Tujuan)}</td><td class="t">${esc(x.Maksud)}</td><td class="t">${x.Lama} hr</td>
+ <td class="t"><div class="flex gap-1 flex-wrap"><button class="btn2" data-a="pv" data-i="${esc(k)}" aria-label="Generate Surat Tugas dan SPPD" title="Generate Surat Tugas dan SPPD"><span class="ms">auto_awesome</span></button><button class="btn2" data-a="pvst" data-i="${esc(k)}" aria-label="Cetak Surat Tugas" title="Cetak Surat Tugas"><span class="ms">assignment</span></button><button class="btn2" data-a="pvsp" data-i="${esc(k)}" aria-label="Cetak SPPD" title="Cetak SPPD"><span class="ms">card_travel</span></button>${adm()?`<button class="btn2" data-a="ed" data-i="${esc(k)}" aria-label="Ubah" title="Ubah"><span class="ms">edit</span></button>${sup()?`<button class="btn-d" data-a="dl" data-i="${esc(k)}" aria-label="Hapus" title="Hapus"><span class="ms">delete</span></button>`:''}`:''}</div></td></tr>`}).join('')||`<tr><td class="t" colspan="9">Tidak ada data.</td></tr>`}</tbody></table></div>
+ <div class="flex justify-between items-center mt-3"><small>${g.length} surat tugas</small><div class="flex gap-2 items-center"><button class="btn2" id="pv">‹</button><b>${S.page} / ${pgs}</b><button class="btn2" id="nx">›</button></div></div>`;
+ const re=()=>{S.page=1;rekap()};$('#q').oninput=e=>{S.q=e.target.value;S.page=1;clearTimeout(window._d);window._d=setTimeout(()=>{rekap();const q=$('#q');q.focus();q.setSelectionRange(99,99)},300)};
+ $('#fb').onchange=e=>{S.fb=e.target.value;re()};$('#fm').onchange=e=>{S.fm=e.target.value;re()};$('#rs').onclick=()=>{S.q=S.fb=S.fm='';re()};
+ $('#pv').onclick=()=>{S.page=Math.max(1,S.page-1);rekap()};$('#nx').onclick=()=>{S.page=Math.min(pgs,S.page+1);rekap()};
+ $('#xx').onclick=async()=>{const done=busy($('#xx'),'Membuat Excel…');try{const p=await run(()=>api('exportRekapXlsx',S.t),'Excel siap diunduh');if(p)dlXlsx(p)}finally{done()}};
+ document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>act(b.dataset.a,b.dataset.i,b))}
+async function act(a,k,btn){const rs=S.d.filter(x=>x.NoST===k);
+ if(a==='pv'){const done=busy(btn,'Menyiapkan dokumen…');try{const v=await run(()=>api('preview',S.t,k));if(v)prev(v,k)}finally{done()}}
+ if(a==='pvst'){const done=busy(btn,'Menyiapkan dokumen…');try{const v=await run(()=>api('previewST',S.t,k));if(v)prev(v,k,'pdfST')}finally{done()}}
+ if(a==='pvsp'){const done=busy(btn,'Menyiapkan dokumen…');try{const v=await run(()=>api('previewSP',S.t,k));if(v)prev(v,k,'pdfSP')}finally{done()}}
+ if(a==='dl'&&await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus Surat Tugas '+k+' beserta '+rs.length+' SPPD pegawai?')){await run(()=>api('delST',S.t,k),'Surat Tugas dihapus');await load()}
+ if(a==='ed')edit(rs)}
+function prev(v,key,fn){const m=document.createElement('div');m.className='modal';
+ const tp=fn==='kwiPdf'?'KWI':fn==='lapPdf'?'LAP':fn==='bkuPdf'?'BKU':'ST',
+ judul=fn==='pdfST'?'Cetak Surat Tugas':fn==='pdfSP'?'Cetak SPPD':tp==='KWI'?'Generate Kwitansi':tp==='LAP'?'Generate Laporan Perjalanan Dinas':tp==='BKU'?'Generate Buku Kas Umum (BKU)':'Generate Surat Tugas dan SPPD',
+ partial=fn==='pdfST'||fn==='pdfSP'; // dokumen sebagian (ST saja / SPPD saja) tidak punya opsi Word/Edit di Docs
+ m.innerHTML=`<div class="glass2 p-4 w-full" style="max-width:920px;height:92vh;display:flex;flex-direction:column"><div class="flex justify-between items-center mb-2 gap-2 flex-wrap"><b>${judul}</b><div class="flex gap-2 flex-wrap"><button class="btn" id="dl">Unduh PDF</button><button class="btn2" id="pr"><span class="ms">print</span> Cetak</button>${partial?'':'<button class="btn2" id="dw"><span class="ms">description</span> Word</button><button class="btn2" id="dg"><span class="ms">edit</span> Edit di Docs</button>'}<button class="btn2" id="cl">Tutup</button></div></div><iframe id="fr" title="${judul}" style="flex:1;border:0;border-radius:.5rem;background:#cfd8d3"></iframe></div>`;
+ document.body.appendChild(m);$('#fr').srcdoc=v;$('#cl').onclick=()=>m.remove();
+ $('#pr').onclick=()=>{try{const w=$('#fr').contentWindow;w.focus();w.print()}catch(e){toast('Perangkat ini tidak mendukung cetak langsung. Gunakan Unduh PDF lalu cetak dari situ.',1)}};
+ if($('#dw'))$('#dw').onclick=async()=>{const done=busy($('#dw'),'Membuat Word…');try{const p=await run(()=>api('exportDoc',S.t,tp,key,'docx'),'Dokumen Word siap diunduh');if(p)dl('data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,'+p.b64,p.name)}finally{done()}};
+ if($('#dg'))$('#dg').onclick=async()=>{const done=busy($('#dg'),'Menyiapkan Docs…');try{const p=await run(()=>api('exportDoc',S.t,tp,key,'gdoc'),'Dokumen dibuat di Google Docs');if(!p)return;$('#dg').outerHTML=`<a class="btn2" href="${p.url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px">Buka di Docs ↗</a>`;window.open(p.url,'_blank')}finally{done()}};
+ $('#dl').onclick=async()=>{const done=busy($('#dl'),'Membuat PDF…');try{const p=await run(()=>api(fn||'pdf',S.t,key),'PDF siap diunduh');if(!p)return;const A=document.createElement('a');A.href='data:application/pdf;base64,'+p.b64;A.download=p.name;document.body.appendChild(A);A.click();A.remove()}finally{done()}}}
+const rpf=n=>'Rp '+Math.round(n).toLocaleString('en-US');
+function dpaDet(b,y){return S.kwi.map(k=>{const rs=S.d.filter(r=>r.NoST===k.NoST);return rs.length&&rs[0].Bidang===b&&String(rs[0].TglST).slice(0,4)===String(y)?{k,rs,t:rs[0]}:null}).filter(Boolean).sort((a,b)=>String(b.t.TglST).localeCompare(String(a.t.TglST)))}
+function dpaDetail(x,y){const L=dpaDet(x.Bidang,y),m=document.createElement('div');m.className='modal';
+ const tot=L.reduce((a,o)=>a+o.rs.reduce((s,r)=>s+r.Lama*o.k.Tarif,0),0);
+ m.innerHTML=`<div class="glass2 p-5 w-full" style="max-width:980px;max-height:92vh;overflow:auto"><div class="flex justify-between items-start gap-3 flex-wrap"><div><h2 class="text-lg font-bold">Detail Perjalanan Dinas — ${badge(x.Bidang)} ${y}</h2>
+ <small style="color:var(--text-2)">Surat Tugas yang kwitansinya sudah terbit · Pagu ${rpf(x.Pagu)} · Jumlah ${rpf(x.Jumlah)} · Sisa <b style="color:${x.Sisa<0?'var(--red)':'inherit'}">${rpf(x.Sisa)}</b></small></div><button class="btn2" id="dx">Tutup</button></div>
+ <div class="overflow-x-auto mt-3"><table class="w-full" style="min-width:760px"><thead><tr><th>No</th><th>Tanggal</th><th>Surat Tugas / Kwitansi</th><th>Tujuan</th><th>Pegawai (hari × tarif)</th><th>Total</th></tr></thead><tbody>
+ ${L.map((o,i)=>{const t=o.rs.reduce((s,r)=>s+r.Lama*o.k.Tarif,0);return`<tr><td class="t">${i+1}</td><td class="t"><b>${idn(o.t.TglST)}</b><br><small>${o.t.Lama} hr</small></td><td class="t">${esc(o.t.NoST)}<br><small>Bukti: ${esc(o.k.Nomor||'-')} · ${esc(o.k.Jenis)}</small></td><td class="t">${esc(o.t.Tujuan)}</td>
+ <td class="t">${o.rs.map(r=>`${esc(r.Nama)} <small style="color:var(--text-2)">${r.Lama} hr × ${rpf(o.k.Tarif)} = ${rpf(r.Lama*o.k.Tarif)}</small>`).join('<br>')}</td><td class="t"><b>${rpf(t)}</b></td></tr>`}).join('')||'<tr><td class="t" colspan="6">Belum ada kwitansi yang terbit untuk bidang ini.</td></tr>'}
+ ${L.length?`<tr><td class="t" colspan="5"><b>TOTAL</b></td><td class="t"><b>${rpf(tot)}</b></td></tr>`:''}</tbody></table></div></div>`;
+ document.body.appendChild(m);$('#dx').onclick=()=>m.remove()}
+async function dpaBox(){const el=$('#dpaBox');if(!el)return;let r=S.dpaCache[S.yr];
+ if(!r){el.innerHTML='<div class="glass p-5" style="color:var(--text-2)">Memuat DPA…</div>';try{r=await api('dpaGet',S.t,S.yr);S.dpaCache[S.yr]=r}catch(e){el.innerHTML='';return}}if(!$('#dpaBox'))return;
+ const P=r.reduce((a,x)=>a+x.Pagu,0),J=r.reduce((a,x)=>a+x.Jumlah,0),tile=(l,v,c)=>`<div class="glass p-3"><div class="text-xs" style="color:var(--text-2)">${l}</div><div class="text-xl font-bold" style="color:${c||'inherit'}">${rpf(v)}</div></div>`;
+ el.innerHTML=`<div class="glass p-5"><div class="flex flex-wrap justify-between items-center gap-3 mb-3"><b>DPA Perjalanan Dinas ${S.yr}</b><button class="btn2" id="dk">Kelola DPA →</button></div>
+ <div class="grid gap-3 grid-cols-1 sm:grid-cols-3 mb-4">${tile('Pagu Anggaran',P)}${tile('Jumlah (Realisasi)',J)}${tile('Sisa',P-J,P-J<0?'var(--red)':'')}</div>
+ <div class="grid gap-3 md:grid-cols-2">${r.map(x=>{const pc=x.Pagu?Math.min(100,x.Jumlah/x.Pagu*100):0;return`<button class="glass p-3" data-d="${x.Bidang}" style="cursor:pointer;color:inherit;text-align:left" aria-label="Detail ${x.Bidang}"><div class="flex justify-between items-center">${badge(x.Bidang)}<small>${x.Pagu?(x.Jumlah/x.Pagu*100).toFixed(1)+'%':'-'}</small></div>
+ <div class="text-xs mt-2" style="color:var(--text-2)">Pagu ${rpf(x.Pagu)} · Jumlah ${rpf(x.Jumlah)}</div><div class="mt-1" style="height:6px;border-radius:9px;background:var(--line)"><div style="height:6px;border-radius:9px;background:${x.Sisa<0?'var(--red)':'var(--accent-text)'};width:${pc}%"></div></div>
+ <div class="text-sm mt-1">Sisa <b style="color:${x.Sisa<0?'var(--red)':'inherit'}">${rpf(x.Sisa)}</b></div></button>`}).join('')}</div></div>`;
+ el.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>dpaDetail(r.find(z=>z.Bidang===b.dataset.d),S.yr));$('#dk').onclick=()=>{S.dy=S.yr;S.view='dpa';shell()}}
+async function bkuV(){let bl=S.bkuCache;if(!bl){bl=await run(()=>api('bkuList',S.t));if(!bl)return;S.bkuCache=bl}
+ S.bb=S.bb&&bl.includes(S.bb)?S.bb:bl[0];S.by=S.by||S.yr;
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Buku Kas Umum (BKU) Perjalanan Dinas</h1>
+ <p class="text-xs mb-3" style="color:var(--text-2)">Disusun otomatis dari Pagu DPA dan Kwitansi yang sudah terbit, jadi selalu tersinkron dengan Surat Tugas dan Kwitansi.</p>
+ <div class="glass p-4 mb-4 flex flex-wrap items-end gap-3">${bl.length>1?`<div><label for="bb">Bidang</label><select id="bb" class="inp" style="width:auto">${bl.map(b=>`<option ${b==S.bb?'selected':''}>${b}</option>`).join('')}</select></div>`:''}
+ <div><label for="by">Tahun</label><select id="by" class="inp" style="width:auto">${yrs().map(y=>`<option ${y==S.by?'selected':''}>${y}</option>`).join('')}</select></div>
+ <button class="btn" id="bg"><span class="ms">auto_awesome</span> Generate BKU</button><button class="btn2" id="xx"><span class="ms">download</span> Export Excel</button></div>`;
+ if($('#bb'))$('#bb').onchange=e=>{S.bb=e.target.value;bkuV()};$('#by').onchange=e=>{S.by=e.target.value;bkuV()};
+ $('#bg').onclick=async()=>{const done=busy($('#bg'),'Menyusun BKU…');try{const key=S.bb+'|'+S.by;const v=await run(()=>api('bkuPreview',S.t,key));if(v)prev(v,key,'bkuPdf')}finally{done()}};
+ $('#xx').onclick=async()=>{const done=busy($('#xx'),'Membuat Excel…');try{const p=await run(()=>api('exportBkuXlsx',S.t,S.bb+'|'+S.by),'Excel siap diunduh');if(p)dlXlsx(p)}finally{done()}}}
+function dpaSubRow(s){const jn=s.jenis||'Luar Kota',ro=dpaRO(),dis=ro?'disabled':'';return `<tr data-sub="${esc(s.id||'')}"><td class="t" data-label="Sub Kegiatan"><input class="inp" data-f="nama" value="${esc(s.nama||'')}" placeholder="mis. Pembinaan Ketentraman Masyarakat" style="min-width:220px" aria-label="Nama Sub Kegiatan" ${dis}></td><td class="t" data-label="Jenis Perjalanan"><select class="inp" data-f="jenis" style="min-width:130px" aria-label="Jenis Perjalanan" ${dis}><option ${jn=='Dalam Kota'?'selected':''}>Dalam Kota</option><option ${jn=='Luar Kota'?'selected':''}>Luar Kota</option><option ${jn=='Luar Daerah'?'selected':''}>Luar Daerah</option></select></td><td class="t" data-label="Kode Rekening"><input class="inp" data-f="kode" value="${esc(s.kode||'')}" placeholder="mis. 1 05 02 2 01 04 5 1 02 04 01 0001" style="min-width:230px" aria-label="Kode Rekening" ${dis}></td><td class="t" data-label="Pagu"><input type="number" min="0" class="inp" data-f="pagu" value="${s.pagu||0}" style="min-width:140px" aria-label="Pagu" ${dis}></td><td class="t">${ro?'':'<button class="btn-d" data-del aria-label="Hapus baris"><span class="ms">delete</span></button>'}</td></tr>`}
+function dpaCard(x){const pc=x.Pagu?Math.min(100,x.Jumlah/x.Pagu*100):0;
+ return `<div class="glass p-4" data-card="${esc(x.Bidang)}">
+ <div class="flex flex-wrap justify-between items-start gap-3 mb-2"><button class="btn2" data-d="${esc(x.Bidang)}" style="padding:2px 6px;border-radius:9999px" aria-label="Detail ${esc(x.Bidang)}">${badge(x.Bidang)}</button>
+ <div class="text-right text-sm"><div>Pagu: <b id="tp-${esc(x.Bidang)}">${rpf(x.Pagu)}</b></div><div>Jumlah: <b>${rpf(x.Jumlah)}</b></div><div>Sisa: <b id="ts-${esc(x.Bidang)}" style="color:${x.Sisa<0?'var(--red)':'inherit'}">${rpf(x.Sisa)}</b></div></div></div>
+ <small style="color:var(--text-2)">${x.ST} surat tugas · klik lencana bidang untuk detail</small>
+ <div class="mt-2 mb-3" style="height:6px;border-radius:9px;background:var(--line)"><div id="bar-${esc(x.Bidang)}" style="height:6px;border-radius:9px;background:${x.Sisa<0?'var(--red)':'var(--accent-text)'};width:${pc}%"></div></div>
+ <div class="overflow-x-auto"><table class="w-full dpaSubTbl" style="min-width:680px"><thead><tr><th>Sub Kegiatan</th><th>Jenis Perjalanan</th><th>Kode Rekening</th><th>Pagu</th><th></th></tr></thead><tbody id="subs-${esc(x.Bidang)}">${x.Subs.map(dpaSubRow).join('')||''}</tbody></table></div>
+ ${dpaRO()?'':`<div class="flex gap-2 justify-between items-center mt-3"><button class="btn2" data-add="${esc(x.Bidang)}"><span class="ms">add</span> Tambah Sub Kegiatan</button><button class="btn" data-save="${esc(x.Bidang)}">Simpan</button></div>`}</div>`}
+function dpaRecalc(bidang,jumlah){const rows=[...document.querySelectorAll(`#subs-${CSS.escape(bidang)} tr`)];const p=rows.reduce((a,tr)=>a+(+tr.querySelector('[data-f=pagu]').value||0),0),s=p-jumlah;
+ $('#tp-'+bidang).textContent=rpf(p);$('#ts-'+bidang).textContent=rpf(s);$('#ts-'+bidang).style.color=s<0?'var(--red)':'';const bar=$('#bar-'+bidang);if(bar){bar.style.width=(p?Math.min(100,jumlah/p*100):0)+'%';bar.style.background=s<0?'var(--red)':'var(--accent-text)'}}
+function wireDpaCard(x,y){const bidang=x.Bidang,card=document.querySelector(`[data-card="${CSS.escape(bidang)}"]`);if(!card)return;
+ if(dpaRO()){card.querySelector(`[data-d="${bidang}"]`).onclick=()=>dpaDetail(x,y);return} // Kasubag Keuangan: hanya lihat - tidak ada baris/tombol untuk diubah
+ const wireRow=tr=>{tr.querySelectorAll('input').forEach(i=>i.oninput=()=>dpaRecalc(bidang,x.Jumlah));tr.querySelector('[data-del]').onclick=()=>{tr.remove();dpaRecalc(bidang,x.Jumlah);toast('Baris Sub Kegiatan dihapus. Klik Simpan untuk menerapkan perubahan.')}};
+ card.querySelectorAll(`#subs-${CSS.escape(bidang)} tr`).forEach(wireRow);
+ card.querySelector(`[data-add="${bidang}"]`).onclick=()=>{const tb=$('#subs-'+bidang),d=document.createElement('tbody');d.innerHTML=dpaSubRow({});const tr=d.firstElementChild;tb.appendChild(tr);wireRow(tr);toast('Baris Sub Kegiatan baru ditambahkan. Klik Simpan untuk menerapkan perubahan.')};
+ card.querySelector(`[data-d="${bidang}"]`).onclick=()=>dpaDetail(x,y);
+ card.querySelector(`[data-save="${bidang}"]`).onclick=async(e)=>{const done=busy(e.currentTarget,'Menyimpan…');try{
+  const subs=[...card.querySelectorAll(`#subs-${CSS.escape(bidang)} tr`)].map(tr=>({id:tr.dataset.sub||'',nama:tr.querySelector('[data-f=nama]').value,jenis:tr.querySelector('[data-f=jenis]').value,kode:tr.querySelector('[data-f=kode]').value,pagu:tr.querySelector('[data-f=pagu]').value}));
+  const r2=await run(()=>api('saveDpaSub',S.t,y,bidang,subs),'Alokasi DPA bidang '+bidang+' tersimpan');if(r2){S.dpaCache[y]=null;dpaV()}}finally{done()}}}
+async function dpaV(){const y=S.dy=S.dy||S.yr;let r=S.dpaCache[y];if(!r){r=await run(()=>api('getDpa',S.t,y));if(!r)return;S.dpaCache[y]=r}
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3 flex items-center gap-2 flex-wrap">DPA Perjalanan Dinas<button class="btn2" id="xx" style="font-size:.8rem"><span class="ms">download</span> Export Excel</button></h1><div class="glass p-4 mb-4 flex flex-wrap items-end gap-3"><div><label for="dy">Tahun Anggaran</label><select id="dy" class="inp" style="width:auto">${yrs().map(t=>`<option ${t==y?'selected':''}>${t}</option>`).join('')}</select></div>
+ <p class="text-xs" style="color:var(--text-2);flex:1;min-width:220px">Satu Bidang dapat memiliki beberapa Sub Kegiatan, masing-masing dengan Pagu dan Kode Rekening sendiri. Jumlah (Realisasi) dan Sisa tetap dihitung total per Bidang dari Kwitansi yang sudah diatur (menu Cetak Kwitansi). Data tersimpan di sheet <b>DPA</b>.</p></div>
+ <div class="grid gap-4">${r.map(dpaCard).join('')}</div>`;
+ r.forEach(x=>wireDpaCard(x,y));
+ $('#dy').onchange=e=>{S.dy=e.target.value;dpaV()};
+ $('#xx').onclick=async()=>{const done=busy($('#xx'),'Membuat Excel…');try{const p=await run(()=>api('exportDpaXlsx',S.t,y),'Excel siap diunduh');if(p)dlXlsx(p)}finally{done()}}}
+function ajuanBadge(s){const st={Diajukan:'background:rgba(245,158,11,.15);color:var(--amber)',Disetujui:'background:rgba(16,185,129,.15);color:var(--accent-text)',Ditolak:'background:rgba(220,38,38,.1);color:var(--red)'}[s]||'';return `<span class="bd" style="${st}">${esc(s)}</span>`}
+function pengajuanRincianDlg(judul,rincian){const m=document.createElement('div');m.className='modal';
+ const tot=rincian.reduce((a,o)=>a+o.total,0);
+ m.innerHTML=`<div class="glass2 p-5 w-full" style="max-width:900px;max-height:92vh;overflow:auto"><div class="flex justify-between items-start gap-3"><h2 class="text-lg font-bold">${esc(judul)}</h2><button class="btn2" id="rdx">Tutup</button></div>
+ <div class="overflow-x-auto mt-3"><table class="w-full" style="min-width:860px"><thead><tr><th>Tgl ST</th><th>No. Surat Tugas</th><th>Tujuan</th><th>Maksud Perjalanan Dinas</th><th>Jml Petugas</th><th>Pegawai (hari × tarif)</th><th>Total</th></tr></thead><tbody>
+ ${rincian.map(o=>`<tr><td class="t"><b>${idn(o.tglST)}</b></td><td class="t">${esc(o.noST)}</td><td class="t">${esc(o.tujuan)}</td><td class="t">${esc(o.maksud||'-')}</td><td class="t">${o.jumlahPetugas??o.pegawai.length} orang</td><td class="t">${o.pegawai.map(p=>`${esc(p.nama)} <small style="color:var(--text-2)">${p.lama} hr × ${rpf(o.tarif)} = ${rpf(p.total)}</small>`).join('<br>')}</td><td class="t"><b>${rpf(o.total)}</b></td></tr>`).join('')||'<tr><td class="t" colspan="7">Tidak ada data.</td></tr>'}
+ ${rincian.length?`<tr><td class="t" colspan="6"><b>TOTAL</b></td><td class="t"><b>${rpf(tot)}</b></td></tr>`:''}</tbody></table></div></div>`;
+ document.body.appendChild(m);$('#rdx').onclick=()=>m.remove()}
+function pengajuanTolakDlg(id){const m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-lg"><h2 class="text-lg font-bold">Tolak Pengajuan Pencairan</h2><label for="tc1">Catatan / Alasan Penolakan</label><textarea id="tc1" class="inp" rows="3" placeholder="Wajib diisi…"></textarea><div class="flex gap-2 justify-end mt-4"><button class="btn2" id="tcx">Batal</button><button class="btn-d" id="tck">Tolak Pengajuan</button></div></div>`;
+ document.body.appendChild(m);$('#tcx').onclick=()=>m.remove();
+ $('#tck').onclick=async()=>{const c=$('#tc1').value.trim();if(!c)return warnToast('Catatan alasan penolakan wajib diisi.');const done=busy($('#tck'),'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,id,false,c),'Pengajuan ditolak');if(ok){m.remove();S.ajuanList=null;pencairanV()}}finally{done()}}}
+async function pencairanV(){S.role==='Admin'?await pencairanAdminV():await pencairanKasubagV()}
+async function pencairanAdminV(){
+ let elig=S.ajuanElig;if(!elig){elig=await run(()=>api('pencairanEligible',S.t));if(!elig)return;S.ajuanElig=elig}
+ let riw=S.ajuanList;if(!riw){riw=await run(()=>api('pengajuanList',S.t));if(!riw)return;S.ajuanList=riw}
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Pengajuan Pencairan Perjalanan Dinas</h1>
+ <div class="glass p-4 mb-4"><b>Ajukan Pencairan Baru</b><p class="text-xs mb-3" style="color:var(--text-2)">Pilih Surat Tugas yang Kwitansinya sudah diatur, untuk diajukan pencairannya ke Kasubag Keuangan.</p>
+ <div class="overflow-x-auto"><table class="w-full" style="min-width:920px"><thead><tr><th><input type="checkbox" id="selAll" aria-label="Pilih semua"></th><th>Tgl ST</th><th>No. Surat Tugas</th><th>Tujuan</th><th>Maksud Perjalanan Dinas</th><th>Jml Petugas</th><th>Jenis</th><th>Jumlah</th></tr></thead><tbody>
+ ${elig.map(x=>`<tr><td class="t"><input type="checkbox" class="ajuanChk" value="${esc(x.noST)}" data-t="${x.total}"></td><td class="t"><b>${idn(x.tglST)}</b></td><td class="t">${esc(x.noST)}</td><td class="t">${esc(x.tujuan)}</td><td class="t">${esc(x.maksud||'-')}</td><td class="t">${x.jumlahPetugas??x.pegawai.length} orang</td><td class="t">${esc(x.jenis)}</td><td class="t">${rpf(x.total)}</td></tr>`).join('')||'<tr><td class="t" colspan="8">Tidak ada Surat Tugas yang siap diajukan (Kwitansi belum diatur, atau sudah termasuk pengajuan lain).</td></tr>'}
+ </tbody></table></div>
+ <div class="flex flex-wrap justify-between items-center gap-3 mt-3"><span>Total dipilih: <b id="ajuanTot">Rp 0</b></span><button class="btn" id="ajuanBtn" disabled><span class="ms">send</span> Ajukan Pencairan</button></div></div>
+ <div class="glass p-2 overflow-x-auto"><div class="p-3"><b>Riwayat Pengajuan Bidang Saya</b></div><table class="w-full" style="min-width:760px"><thead><tr><th>Tgl Ajukan</th><th>Surat Tugas</th><th>Jumlah</th><th>Status</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody>
+ ${riw.map(x=>`<tr><td class="t"><b>${idn(x.tglAjukan)}</b></td><td class="t">${x.noSTList.length} ST</td><td class="t">${rpf(x.jumlah)}</td><td class="t">${ajuanBadge(x.status)}</td><td class="t">${esc(x.catatan||'-')}</td><td class="t"><button class="btn2" data-r="${esc(x.id)}">Lihat Rincian</button></td></tr>`).join('')||'<tr><td class="t" colspan="6">Belum ada pengajuan.</td></tr>'}
+ </tbody></table></div>`;
+ const recalc=()=>{const ch=[...document.querySelectorAll('.ajuanChk:checked')],tot=ch.reduce((a,c)=>a+(+c.dataset.t||0),0);$('#ajuanTot').textContent=rpf(tot);$('#ajuanBtn').disabled=!ch.length};
+ document.querySelectorAll('.ajuanChk').forEach(c=>c.onchange=recalc);
+ if($('#selAll'))$('#selAll').onchange=e=>{document.querySelectorAll('.ajuanChk').forEach(c=>c.checked=e.target.checked);recalc()};
+ $('#ajuanBtn').onclick=async()=>{const keys=[...document.querySelectorAll('.ajuanChk:checked')].map(c=>c.value);if(!keys.length)return;
+  if(!await confirmDlg('Ajukan pencairan untuk '+keys.length+' Surat Tugas senilai '+$('#ajuanTot').textContent+' ke Kasubag Keuangan?','Konfirmasi Pengajuan'))return;
+  const done=busy($('#ajuanBtn'),'Mengajukan…');try{const r=await run(()=>api('pengajuanAjukan',S.t,keys),'Pengajuan Pencairan terkirim');if(r){S.ajuanElig=null;S.ajuanList=null;pencairanV()}}finally{done()}};
+ document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{const r=await run(()=>api('pengajuanRincian',S.t,b.dataset.r));if(r)pengajuanRincianDlg('Rincian Pengajuan Pencairan',r)})}
+async function pencairanKasubagV(){
+ let riw=S.ajuanList;if(!riw){riw=await run(()=>api('pengajuanList',S.t));if(!riw)return;S.ajuanList=riw}
+ let dpa=S.dpaCache[S.yr];if(!dpa){try{dpa=await api('dpaGet',S.t,S.yr);S.dpaCache[S.yr]=dpa}catch(e){dpa=[]}}
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Pengajuan Pencairan Perjalanan Dinas</h1>
+ <div class="glass p-4 mb-4"><b>Sisa Anggaran Tiap Bidang (${S.yr})</b><div class="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-3">
+ ${dpa.map(x=>`<div class="glass2 p-3">${badge(x.Bidang)}<div class="text-xl font-bold mt-2" style="color:${x.Sisa<0?'var(--red)':'var(--accent-text)'}">${rpf(x.Sisa)}</div><div class="text-xs" style="color:var(--text-2)">dari Pagu ${rpf(x.Pagu)}</div></div>`).join('')||'<small style="color:var(--text-2)">Data DPA belum tersedia.</small>'}
+ </div></div>
+ <p class="text-xs mb-3" style="color:var(--text-2)">Daftar pengajuan pencairan dari semua Bidang. Setujui atau tolak (wajib disertai catatan) sebelum dana dicairkan.</p>
+ <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:900px"><thead><tr><th>Tgl Ajukan</th><th>Bidang</th><th>Surat Tugas</th><th>Jumlah</th><th>Diajukan Oleh</th><th>Status</th><th>Diproses</th><th>Aksi</th></tr></thead><tbody>
+ ${riw.map(x=>`<tr><td class="t"><b>${idn(x.tglAjukan)}</b></td><td class="t">${badge(x.bidang)}</td><td class="t">${x.noSTList.length} ST</td><td class="t">${rpf(x.jumlah)}</td><td class="t">${esc(x.diajukanOleh)}</td><td class="t">${ajuanBadge(x.status)}${x.status==='Ditolak'&&x.catatan?`<br><small style="color:var(--text-2)">${esc(x.catatan)}</small>`:''}</td><td class="t">${x.tglProses?`<small>${idn(x.tglProses)}<br>${esc(x.diprosesOleh)}</small>`:'<small style="color:var(--text-2)">-</small>'}</td>
+ <td class="t"><div class="flex gap-1 flex-wrap"><button class="btn2" data-r="${esc(x.id)}">Lihat Rincian</button>${x.status==='Diajukan'?`<button class="btn" data-ok="${esc(x.id)}">Setujui</button><button class="btn-d" data-no="${esc(x.id)}">Tolak</button>`:''}</div></td></tr>`).join('')||'<tr><td class="t" colspan="8">Belum ada pengajuan.</td></tr>'}
+ </tbody></table></div>`;
+ document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{const r=await run(()=>api('pengajuanRincian',S.t,b.dataset.r));if(r)pengajuanRincianDlg('Rincian Pengajuan Pencairan',r)});
+ document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!await confirmDlg('Setujui pengajuan pencairan ini?'))return;const done=busy(b,'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,b.dataset.ok,true,''),'Pengajuan disetujui');if(ok){S.ajuanList=null;S.dpaCache={};pencairanV()}}finally{done()}});
+ document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>pengajuanTolakDlg(b.dataset.no))}
+const idnF=s=>{if(!s)return'-';const[y,m,d]=s.split('-');return d+' '+BL[m-1]+' '+y};
+function lapGen(rs){const x=rs[0],tg=x.Berangkat===x.Kembali?idnF(x.Berangkat):idnF(x.Berangkat)+' s.d. '+idnF(x.Kembali);
+ return{kegiatan:`Melaksanakan ${x.Maksud} di ${x.Tujuan} pada tanggal ${tg} (${x.Lama} hari) dengan melibatkan ${rs.length} personel sesuai Surat Tugas.`,
+ hasil:`Kegiatan perjalanan dinas ke ${x.Tujuan} terlaksana dengan baik dan lancar sesuai dengan maksud dan tujuan yang ditetapkan.`,
+ kesimpulan:`Kegiatan berjalan aman dan terkendali. Disarankan kegiatan serupa dapat terus dilaksanakan secara berkelanjutan dengan koordinasi yang baik.`}}
+function lapV(){const g=[...new Set(S.d.map(r=>r.NoST))].map(k=>S.d.filter(r=>r.NoST===k)).sort((a,b)=>String(b[0].TglST).localeCompare(String(a[0].TglST)));
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Laporan Perjalanan Dinas</h1><div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:760px"><thead><tr><th>Tgl Surat Tugas</th><th>No. Surat Tugas</th><th>Pegawai</th><th>Maksud / Tujuan</th><th>Laporan</th><th>Aksi</th></tr></thead><tbody>${g.map(a=>{const x=a[0],l=S.lap.find(q=>q.NoST===x.NoST);return`<tr><td class="t"><b>${idn(x.TglST)}</b></td><td class="t">${esc(x.NoST)}</td><td class="t">${a.length} pegawai</td><td class="t">${esc(x.Maksud)}<br><small>${esc(x.Tujuan)}</small></td><td class="t">${l?'<span class="bd" style="background:rgba(16,185,129,.15);color:var(--accent-text)">Sudah disusun</span>':'<small style="color:var(--text-2)">Belum disusun</small>'}</td><td class="t"><button class="btn2" data-l="${esc(x.NoST)}"><span class="ms">auto_awesome</span> Generate Laporan Perjalanan Dinas</button></td></tr>`}).join('')||'<tr><td class="t" colspan="6">Belum ada Surat Tugas.</td></tr>'}</tbody></table></div>`;
+ document.querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>lapDlg(b.dataset.l))}
+function lapDlg(k){const rs=S.d.filter(r=>r.NoST===k),q=S.lap.find(x=>x.NoST===k),v=q?{kegiatan:q.Kegiatan,hasil:q.Hasil,kesimpulan:q.Kesimpulan}:lapGen(rs),m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-2xl" style="max-height:92vh;overflow:auto"><h2 class="text-lg font-bold">Isi Laporan Perjalanan Dinas</h2><small style="color:var(--text-2)">${esc(k)} · ${rs.length} pegawai · Maksud: ${esc(rs[0].Maksud)}</small>
+ <label for="l1">Kegiatan yang dilaksanakan</label><textarea id="l1" class="inp" rows="3">${esc(v.kegiatan)}</textarea>
+ <label for="l2">Hasil yang dicapai</label><textarea id="l2" class="inp" rows="2">${esc(v.hasil)}</textarea>
+ <label for="l3">Kesimpulan dan saran</label><textarea id="l3" class="inp" rows="3">${esc(v.kesimpulan)}</textarea>
+ <label for="l4">Tanggal laporan (boleh dikosongkan)</label><input id="l4" type="date" class="inp" value="${esc(q?q.Tanggal:'')}">
+ <div class="flex gap-2 justify-between flex-wrap mt-4"><button class="btn2" id="lg"><span class="ms">auto_fix_high</span> Buat otomatis ulang</button><div class="flex gap-2"><button class="btn2" id="lx">Batal</button><button class="btn" id="ls">Generate Laporan</button></div></div></div>`;document.body.appendChild(m);
+ $('#lg').onclick=()=>{const g=lapGen(rs);$('#l1').value=g.kegiatan;$('#l2').value=g.hasil;$('#l3').value=g.kesimpulan};$('#lx').onclick=()=>m.remove();
+ $('#ls').onclick=async()=>{const done=busy($('#ls'),'Membuat laporan…');try{const ok=await run(()=>api('saveLap',S.t,{noST:k,kegiatan:$('#l1').value,hasil:$('#l2').value,kesimpulan:$('#l3').value,tgl:$('#l4').value}));if(!ok)return;await load();const p=await run(()=>api('lapPreview',S.t,k));if(p){m.remove();prev(p,k,'lapPdf')}}finally{done()}}}
+function kwiV(){let g=[...new Set(S.d.map(r=>r.NoST))].map(k=>S.d.filter(r=>r.NoST===k)).sort((a,b)=>String(b[0].TglST).localeCompare(a[0].TglST));
+ S.kwm=S.kwm||new Date().toISOString().slice(0,7);S.fbk=S.fbk||'';
+ if(S.fbk)g=g.filter(a=>a[0].Bidang===S.fbk);
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Cetak Kwitansi</h1>
+ <div class="glass p-4 mb-4 flex flex-wrap items-end gap-3"><div><label for="km">Cetak Massal — Bulan Surat Tugas</label><input id="km" type="month" class="inp" style="width:auto" value="${S.kwm}"></div><button class="btn2" id="kmg"><span class="ms">picture_as_pdf</span> Cetak Semua Kwitansi Bulan Ini</button><p class="text-xs" style="color:var(--text-2);flex:1;min-width:200px">Menggabungkan semua Kwitansi yang sudah diatur (jenis &amp; tarif terisi) dari Surat Tugas pada bulan terpilih${S.fbk?' dan Bidang '+esc(S.fbk):''} menjadi satu file PDF.</p></div>
+ <div class="glass p-3 mb-4 flex flex-wrap items-end gap-3"><div><label for="fbk">Filter Bidang</label><select id="fbk" class="inp" aria-label="Bidang"><option value="">Semua Bidang</option>${BID.map(b=>`<option ${S.fbk==b?'selected':''}>${b}</option>`).join('')}</select></div></div>
+ <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:820px"><thead><tr><th>Tgl Surat Tugas</th><th>No. Surat Tugas</th><th>Bidang</th><th>Pegawai</th><th>Tujuan</th><th>Kwitansi</th><th>Aksi</th></tr></thead><tbody>${g.map(a=>{const x=a[0],k=S.kwi.find(q=>q.NoST===x.NoST);return`<tr><td class="t"><b>${idn(x.TglST)}</b></td><td class="t">${esc(x.NoST)}</td><td class="t">${badge(x.Bidang)}</td><td class="t">${a.length} pegawai</td><td class="t">${esc(x.Tujuan)}</td><td class="t">${k?`<span class="bd" style="background:rgba(16,185,129,.15);color:var(--accent-text)">${esc(k.Jenis)}</span><br><small>${esc(k.Nomor||'-')}</small>`:'<small style="color:var(--text-2)">Belum diatur</small>'}</td><td class="t"><button class="btn2" data-k="${esc(x.NoST)}"><span class="ms">auto_awesome</span> Generate</button></td></tr>`}).join('')||'<tr><td class="t" colspan="7">Belum ada Surat Tugas.</td></tr>'}</tbody></table></div>`;
+ document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>kwiDlg(b.dataset.k));
+ $('#km').onchange=e=>S.kwm=e.target.value;
+ $('#fbk').onchange=e=>{S.fbk=e.target.value;kwiV()};
+ $('#kmg').onclick=async()=>{const done=busy($('#kmg'),'Menggabungkan PDF…');try{const p=await run(()=>api('kwiPdfBulan',S.t,S.kwm,S.fbk),'PDF gabungan siap diunduh');if(p)dl('data:application/pdf;base64,'+p.b64,p.name)}finally{done()}}}
+const tarifFor=jn=>jn==='Dalam Kota'?S.tarif.dalam:jn==='Luar Daerah'?S.tarif.luarDaerah:S.tarif.luar;
+function kwiDlg(k){const a=S.d.filter(r=>r.NoST===k),q=S.kwi.find(x=>x.NoST===k)||{},m=document.createElement('div'),jn=q.Jenis||a[0].JenisPerjalanan||'Luar Kota',tf=q.Tarif||tarifFor(jn);m.className='modal';
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-lg"><h2 class="text-lg font-bold">Data Kwitansi</h2><small style="color:var(--text-2)">${esc(k)} · ${a.length} pegawai${a[0].SubKegiatan?' · Sub Kegiatan: '+esc(a[0].SubKegiatan):''}</small>
+ <label for="k1">Nomor Bukti</label><input id="k1" class="inp" value="${esc(q.Nomor||'')}">
+ <div class="grid grid-cols-2 gap-2"><div><label for="k2">Jenis Perjalanan</label><select id="k2" class="inp"><option ${jn=='Dalam Kota'?'selected':''}>Dalam Kota</option><option ${jn=='Luar Kota'?'selected':''}>Luar Kota</option><option ${jn=='Luar Daerah'?'selected':''}>Luar Daerah</option></select></div>
+ <div><label for="k3">Tarif per hari (Rp)</label><input id="k3" type="number" min="0" class="inp" value="${tf}"></div></div>
+ <label for="k4">Tanggal dikeluarkan uang (boleh kosong)</label><input id="k4" type="date" class="inp" value="${esc(q.Tanggal||'')}">
+ <p id="k5" class="mt-3" style="color:var(--text-2)"></p><div class="flex gap-2 justify-end mt-4"><button class="btn2" id="kx">Batal</button><button class="btn" id="ks">Generate</button></div></div>`;document.body.appendChild(m);
+ const hit=()=>{const t=+$('#k3').value||0;$('#k5').innerHTML='Total seluruh biaya: <b>Rp '+a.reduce((s,r)=>s+r.Lama*t,0).toLocaleString('en-US')+'</b> ('+a.length+' pegawai)'};
+ $('#k2').onchange=e=>{$('#k3').value=tarifFor(e.target.value);hit()};$('#k3').oninput=hit;hit();$('#kx').onclick=()=>m.remove();
+ $('#ks').onclick=async()=>{const done=busy($('#ks'),'Membuat kwitansi…');try{const ok=await run(()=>api('saveKwi',S.t,{noST:k,nomor:$('#k1').value,jenis:$('#k2').value,tarif:$('#k3').value,tgl:$('#k4').value}));if(!ok)return;await load();const v=await run(()=>api('kwiPreview',S.t,k));if(v){m.remove();prev(v,k,'kwiPdf')}}finally{done()}}}
+function edit(rs){const r=rs[0],m=document.createElement('div');m.className='modal';let pick=rs.map(q=>String(q.NIP));
+ const renderEPet=()=>{$('#echips').innerHTML=pick.map((n,i)=>{const p=S.pg.find(x=>String(x.NIP)===n)||rs.find(q=>String(q.NIP)===n)||{};return`<div class="glass p-3 mb-2 flex justify-between items-center"><div><b>${i+1}. ${esc(p.Nama||n)}</b><br><small>${esc(p.Pangkat||'')} · NIP ${esc(n)} · ${esc(p.Jabatan||'')}</small></div><button class="btn-d" aria-label="Hapus Petugas" type="button" data-rm="${esc(n)}"><span class="ms">close</span></button></div>`}).join('')||'<small style="color:var(--text-2)">Minimal harus ada satu pegawai.</small>';
+  document.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{if(pick.length<=1)return warnToast('Surat Tugas harus memiliki minimal satu pegawai.');pick=pick.filter(n=>n!==b.dataset.rm);renderEPet()})};
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-lg" style="max-height:90vh;overflow:auto"><h2 class="text-lg font-bold">Ubah Surat Tugas</h2><small style="color:var(--text-2)">${esc(r.NoST)} · berlaku untuk ${rs.length} pegawai</small>
+ <label>Maksud Perjalanan</label><textarea id="e1" class="inp" rows="3">${esc(r.Maksud)}</textarea><label for="e2">Tempat Tujuan</label><select id="e2" class="inp">${(S.wil.includes(r.Tujuan)?S.wil:[r.Tujuan].concat(S.wil)).map(w=>`<option ${w==r.Tujuan?'selected':''}>${esc(w)}</option>`).join('')}</select>
+ <div class="grid grid-cols-3 gap-2"><div><label>Berangkat <small style="font-weight:400;color:var(--text-2)">(terkunci)</small></label><input id="e3" type="date" class="inp" value="${r.Berangkat}" disabled style="opacity:.65;cursor:not-allowed"></div><div><label>Lama (hari)</label><input id="e4" type="number" min="1" class="inp" value="${r.Lama}"></div><div><label>Bidang</label><select id="e5" class="inp">${BIDX().map(b=>`<option ${b==r.Bidang?'selected':''}>${b}</option>`).join('')}</select></div></div>
+ <label>Petugas</label><div class="flex gap-2"><select id="eps" class="inp"><option value="">— Pilih pegawai —</option>${S.pg.map(p=>`<option value="${esc(p.NIP)}">${esc(p.Nama)} — ${esc(p.Jabatan)}</option>`).join('')}</select><button class="btn2" id="epa" type="button">Tambah</button></div><div id="echips" class="mt-2"></div>
+ <div class="flex gap-2 justify-end mt-5"><button class="btn2" id="x">Batal</button><button class="btn" id="sv">Simpan</button></div></div>`;document.body.appendChild(m);renderEPet();
+ $('#epa').onclick=()=>{const v=$('#eps').value;if(!v||pick.includes(v))return;const c=clash(v,r.Berangkat,$('#e4').value,r.NoST);if(c)return warnToast(msgClash(v,c)+' dan tidak dapat ditambahkan.');pick.push(v);renderEPet()};
+ $('#x').onclick=()=>m.remove();$('#sv').onclick=async()=>{if($('#e3').value!==r.Berangkat&&$('#e3').value<today())return warnToast('Tanggal Berangkat tidak boleh diubah ke tanggal yang sudah berlalu.');
+  if(!pick.length)return warnToast('Surat Tugas harus memiliki minimal satu pegawai.');
+  const bad=pick.map(n=>({n,c:clash(n,$('#e3').value,$('#e4').value,r.NoST)})).filter(o=>o.c);if(bad.length)return warnToast(bad.map(o=>msgClash(o.n,o.c)).join('. ')+'. Perubahan dibatalkan.');const ok=await run(()=>api('updST',S.t,r.NoST,{maksud:$('#e1').value,tujuan:$('#e2').value,berangkat:$('#e3').value,lama:$('#e4').value,bidang:$('#e5').value,nips:pick}),'Perubahan disimpan');if(ok!==undefined){m.remove();await load()}}}
+async function loadSubKeg(){const y=$('#f1').value.slice(0,4),bd=$('#f4').value,sel=$('#f7');if(!sel)return;
+ let r=S.dpaCache[y];if(!r){try{r=await api('dpaGet',S.t,y);S.dpaCache[y]=r}catch(e){r=[]}}const rec=(r||[]).find(x=>x.Bidang===bd),subs=rec?rec.Subs:[];
+ sel.innerHTML='<option value="">— Tidak ada (opsional) —</option>'+subs.map(s=>`<option value="${esc(s.id)}" data-nama="${esc(s.nama)}" data-jenis="${esc(s.jenis)}">${esc(s.nama)} (${esc(s.jenis)})</option>`).join('');
+ subKegHint()}
+function subKegHint(){const op=$('#f7')&&$('#f7').selectedOptions[0];$('#f7h').textContent=op&&op.value?'Jenis Perjalanan: '+op.dataset.jenis:'Jika dipilih, Jenis Perjalanan & Tarif Kwitansi nanti terisi otomatis.'}
+function inputV(){$('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Formulir Surat Tugas & SPPD</h1><div class="glass p-5 mb-4"><b>1. Detail Surat Tugas</b>
+ <p class="text-xs" style="color:var(--text-2)">Nomor Surat Tugas & SPPD dibuat otomatis (dikunci agar tidak ganda).</p>
+ <div class="grid gap-3 md:grid-cols-3"><div><label>Tanggal Surat Tugas</label><input id="f1" type="date" class="inp" value="${today()}" min="${today()}"></div><div><label>Tanggal Berangkat</label><input id="f2" type="date" class="inp" value="${today()}" min="${today()}"></div><div><label>Lama Bertugas (hari)</label><input id="f3" type="number" min="1" value="1" class="inp"></div>
+ <div><label>Bidang</label><select id="f4" class="inp">${BIDX().map(b=>`<option>${b}</option>`).join('')}</select></div><div class="md:col-span-2"><label for="f5">Tempat Tujuan (Master Wilayah)</label><select id="f5" class="inp"><option value="">— Pilih kecamatan —</option>${S.wil.map(w=>`<option>${esc(w)}</option>`).join('')}</select></div>
+ <div class="md:col-span-3"><label for="f7">Sub Kegiatan (sesuai DPA Bidang terkait)</label><select id="f7" class="inp"><option value="">— Tidak ada (opsional) —</option></select><small id="f7h" style="color:var(--text-2)"></small></div></div>
+ <label>Maksud Perjalanan Dinas</label><textarea id="f6" rows="3" class="inp"></textarea></div>
+ <div class="glass p-5 mb-4"><b>2. Pegawai yang Ditugaskan</b><div class="flex gap-2 mt-2"><select id="ps" class="inp"><option value="">— Pilih pegawai —</option>${S.pg.map(p=>`<option value="${esc(p.NIP)}">${esc(p.Nama)} — ${esc(p.Jabatan)}</option>`).join('')}</select><button class="btn" id="pa">Tambah</button></div><div id="warn" class="mt-3"></div><div id="chips" class="mt-3"></div></div>
+ <button class="btn" id="sb">Simpan & Terbitkan Penugasan</button>`;chips();
+ $('#pa').onclick=()=>{const v=$('#ps').value;if(!v||S.pick.includes(v))return;const c=clash(v,$('#f2').value,$('#f3').value);if(c)return warn([msgClash(v,c)+' dan tidak dapat ditambahkan.']);S.pick.push(v);warn([]);chips()};
+ $('#f2').onchange=$('#f3').oninput=refreshPs;refreshPs();
+ $('#f1').onchange=loadSubKeg;$('#f4').onchange=loadSubKeg;$('#f7').onchange=subKegHint;loadSubKeg();
+ $('#sb').onclick=async()=>{if($('#f1').value<today()||$('#f2').value<today())return toast('Tanggal tidak boleh tanggal yang sudah berlalu.',1);
+  const sk=$('#f7').selectedOptions[0];
+  const f={tgl:$('#f1').value,berangkat:$('#f2').value,lama:$('#f3').value,bidang:$('#f4').value,tujuan:$('#f5').value,maksud:$('#f6').value,nips:S.pick,subKegiatan:sk&&sk.value?sk.dataset.nama:'',jenisPerjalanan:sk&&sk.value?sk.dataset.jenis:''};
+  const r=await run(()=>api('saveST',S.t,f));if(!r)return;toast('Terbit: '+r.noST);S.pick=[];S.view='rekap';await load()}}
+function chips(){$('#chips').innerHTML=S.pick.map((n,i)=>{const p=S.pg.find(x=>String(x.NIP)===n);return`<div class="glass p-3 mb-2 flex justify-between items-center"><div><b>${i+1}. ${esc(p.Nama)}</b><br><small>${esc(p.Pangkat)} · NIP ${esc(p.NIP)} · ${esc(p.Jabatan)}</small></div><button class="btn-d" aria-label="Hapus" onclick="S.pick.splice(${i},1);chips()"><span class="ms">close</span></button></div>`}).join('')||'<small style="color:var(--text-2)">Belum ada pegawai dipilih.</small>'}
+
+async function pegV(){let c=S.pegCache;if(!c){c=await run(()=>api('pegawaiList',S.t));if(!c)return;S.pegCache=c}
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Data Master Pegawai</h1><div class="glass p-5 mb-4 grid gap-2 md:grid-cols-6"><input id="n1" class="inp" placeholder="Nama"><input id="n2" class="inp" placeholder="Pangkat/Gol"><input id="n3" class="inp" placeholder="NIP"><input id="n4" class="inp" placeholder="Jabatan"><input id="n5" class="inp" placeholder="Tingkat Biaya (mis. F)"><button class="btn" id="ad">Tambah</button></div>
+ <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:820px"><thead><tr><th>Nama</th><th>Pangkat/Gol</th><th>NIP</th><th>Jabatan</th><th>Tingkat Biaya</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${c.map(p=>`<tr><td class="t"><b>${esc(p.Nama)}</b></td><td class="t">${esc(p.Pangkat)}</td><td class="t">${esc(p.NIP)}</td><td class="t">${esc(p.Jabatan)}</td><td class="t">${esc(p.TingkatBiaya)}</td><td class="t">${p.Aktif==='Ya'?'<span style="color:var(--accent-text);font-weight:600">● Aktif</span>':'<span style="color:var(--red);font-weight:600">● Nonaktif</span>'}</td><td class="t"><div class="flex gap-2"><button class="btn2" data-ed="${esc(p.NIP)}">Ubah</button>${p.Aktif==='Ya'?`<button class="btn-d" data-hp="${esc(p.NIP)}">Hapus</button>`:`<button class="btn2" data-pl="${esc(p.NIP)}">Pulihkan</button>`}</div></td></tr>`).join('')}</tbody></table></div>`;
+ $('#ad').onclick=async()=>{const p={Nama:$('#n1').value,Pangkat:$('#n2').value,NIP:$('#n3').value,Jabatan:$('#n4').value,Tingkat:$('#n5').value};if(!p.Nama||!p.NIP)return toast('Nama & NIP wajib',1);await run(()=>api('savePegawai',S.t,p),'Pegawai ditambahkan');S.pegCache=null;await load()};
+ document.querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>editPegawaiDlg(b.dataset.ed));
+ document.querySelectorAll('[data-hp]').forEach(b=>b.onclick=async()=>{const nip=b.dataset.hp,p=c.find(x=>String(x.NIP)===nip);if(!p)return;if(!await confirmDlg('Nonaktifkan '+p.Nama+' (NIP '+p.NIP+')?\n\nPegawai ini tidak akan bisa lagi dipilih pada Surat Tugas baru. Seluruh riwayat Surat Tugas, Kwitansi, dan Laporan yang sudah ada tetap tersimpan.','Nonaktifkan Pegawai'))return;await run(()=>api('setPegawaiAktif',S.t,nip,false),'Pegawai dinonaktifkan');S.pegCache=null;await load()});
+ document.querySelectorAll('[data-pl]').forEach(b=>b.onclick=async()=>{const nip=b.dataset.pl,p=c.find(x=>String(x.NIP)===nip);if(!p)return;if(!await confirmDlg('Pulihkan '+p.Nama+' (NIP '+p.NIP+') agar aktif kembali dan dapat dipilih pada Surat Tugas baru?','Pulihkan Pegawai'))return;await run(()=>api('setPegawaiAktif',S.t,nip,true),'Pegawai dipulihkan');S.pegCache=null;await load()})}
+function editPegawaiDlg(nip){const p=S.pegCache&&S.pegCache.find(x=>String(x.NIP)===String(nip));if(!p)return;
+ const m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-md"><h2 class="text-lg font-bold">Ubah Data Pegawai</h2>
+ <p class="text-xs mt-1" style="color:var(--text-2)">NIP ${esc(p.NIP)} (tidak dapat diubah)</p>
+ <label for="ep1" class="block mt-3">Nama</label><input id="ep1" class="inp" value="${esc(p.Nama)}">
+ <label for="ep2" class="block mt-3">Pangkat/Gol</label><input id="ep2" class="inp" value="${esc(p.Pangkat)}">
+ <label for="ep3" class="block mt-3">Jabatan</label><input id="ep3" class="inp" value="${esc(p.Jabatan)}">
+ <label for="ep4" class="block mt-3">Tingkat Biaya (mis. F)</label><input id="ep4" class="inp" value="${esc(p.TingkatBiaya)}">
+ <p id="ep5" class="text-xs mt-2" style="color:var(--red)"></p>
+ <div class="flex gap-2 justify-end mt-4"><button class="btn2" id="epx">Batal</button><button class="btn" id="epk">Simpan</button></div></div>`;
+ document.body.appendChild(m);$('#ep1').focus();
+ $('#epx').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove()};
+ $('#ep1').onkeydown=e=>{if(e.key==='Enter')$('#epk').click()};
+ $('#epk').onclick=async()=>{const nama=$('#ep1').value.trim();if(!nama){$('#ep5').textContent='Nama wajib diisi.';return}
+  const data={NIP:p.NIP,Nama:nama,Pangkat:$('#ep2').value,Jabatan:$('#ep3').value,Tingkat:$('#ep4').value};
+  const done=busy($('#epk'),'Menyimpan…');
+  try{await run(()=>api('editPegawai',S.t,data),'Data pegawai diperbarui');if(document.body.contains(m))m.remove();S.pegCache=null;await load()}finally{done()}}}
+function usrV(){$('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Manajemen Pengguna</h1><div class="glass p-5 mb-2 grid gap-2 md:grid-cols-3"><input id="u1" class="inp" placeholder="Username / NIP" aria-label="Username"><div style="position:relative"><input id="u2" class="inp" type="password" placeholder="Kata sandi (min. 6)" aria-label="Kata sandi" autocomplete="new-password" style="padding-right:2.6rem"><button type="button" id="uv" class="ms" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" style="position:absolute;right:.4rem;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;color:var(--text-2);padding:.3rem;line-height:1">visibility</button></div><input id="u3" class="inp" placeholder="Nama" aria-label="Nama">
+ <select id="u4" class="inp" aria-label="Peran"><option>Pegawai</option><option>Admin</option><option>Kasubag Keuangan</option><option>KABID</option><option>KASI</option><option>SEKRETARIS</option><option>Super Admin</option></select><select id="u6" class="inp" aria-label="Bidang"><option value="">— Bidang —</option>${BID.map(b=>`<option>${b}</option>`).join('')}</select><input id="u5" class="inp" placeholder="Foto profil: link/ID Drive atau URL (opsional)" aria-label="Foto profil">
+ <button class="btn" id="au">Buat Akun</button></div>
+ <p class="text-xs mb-3" style="color:var(--text-2)"><b>Super Admin:</b> semua fitur dan semua bidang. <b>Admin:</b> hanya data, DPA, kwitansi, dan laporan bidangnya sendiri (tanpa Data Pegawai). <b>Kasubag Keuangan:</b> Dashboard, DPA, Cetak Kwitansi, dan Buku Kas Umum (BKU) untuk semua bidang. <b>KABID / KASI / SEKRETARIS:</b> Dashboard, DPA, dan Buku Kas Umum (BKU) — khusus bidangnya sendiri saja (wajib pilih Bidang). <b>Pegawai:</b> hanya Dashboard. Foto profil dan Bidang juga bisa diatur di sheet USERS.</p>
+ <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:640px"><thead><tr><th>Foto</th><th>Username</th><th>Nama</th><th>Peran</th><th>Bidang</th><th>Aksi</th></tr></thead><tbody>${S.us.map(u=>`<tr><td class="t">${ava(u.Foto,u.Nama,36)}</td><td class="t">${esc(u.Username)}</td><td class="t">${esc(u.Nama)}</td><td class="t">${esc(u.Role)}</td><td class="t">${u.Bidang?badge(u.Bidang):'-'}</td><td class="t"><button class="btn2" data-rs="${esc(u.Username)}">Reset sandi</button></td></tr>`).join('')}</tbody></table></div>`;
+ $('#uv').onclick=()=>{const ip=$('#u2'),show=ip.type==='password';ip.type=show?'text':'password';const b=$('#uv');b.textContent=show?'visibility_off':'visibility';b.title=b.ariaLabel=show?'Sembunyikan kata sandi':'Tampilkan kata sandi'};
+ $('#au').onclick=async()=>{const u={Username:$('#u1').value,Password:$('#u2').value,Nama:$('#u3').value,Role:$('#u4').value,Foto:$('#u5').value,Bidang:$('#u6').value};if(!u.Username||u.Password.length<6)return toast('Username wajib, sandi min. 6 karakter',1);if(['Admin','KABID','KASI','SEKRETARIS'].includes(u.Role)&&!u.Bidang)return toast('Pilih Bidang untuk akun '+u.Role,1);await run(()=>api('addUser',S.t,u),'Akun dibuat');await load()};
+ document.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>resetPassDlg(b.dataset.rs))}
+function resetPassDlg(username){const m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-md"><h2 class="text-lg font-bold">Reset Kata Sandi</h2>
+ <p class="text-sm mt-2">Atur kata sandi baru untuk akun <b>${esc(username)}</b></p>
+ <label for="rz1" class="block mt-3">Kata Sandi Baru (min. 6 karakter)</label><div style="position:relative"><input id="rz1" type="password" class="inp" autocomplete="new-password" style="padding-right:2.6rem"><button type="button" id="rzv" class="ms" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" style="position:absolute;right:.4rem;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;color:var(--text-2);padding:.3rem;line-height:1">visibility</button></div>
+ <p id="rz2" class="text-xs mt-2" style="color:var(--red)"></p>
+ <div class="flex gap-2 justify-end mt-4"><button class="btn2" id="rzx">Batal</button><button class="btn" id="rzk">Reset Kata Sandi</button></div></div>`;
+ document.body.appendChild(m);$('#rz1').focus();
+ $('#rzv').onclick=()=>{const ip=$('#rz1'),show=ip.type==='password';ip.type=show?'text':'password';const b=$('#rzv');b.textContent=show?'visibility_off':'visibility';b.title=b.ariaLabel=show?'Sembunyikan kata sandi':'Tampilkan kata sandi'};
+ $('#rzx').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove()};
+ $('#rz1').onkeydown=e=>{if(e.key==='Enter')$('#rzk').click()};
+ $('#rzk').onclick=async()=>{const p=$('#rz1').value;if(p.length<6){$('#rz2').textContent='Kata sandi minimal 6 karakter.';return}
+  const done=busy($('#rzk'),'Memproses…');
+  try{await run(()=>api('resetPass',S.t,username,p),'Kata sandi diatur ulang');if(document.body.contains(m))m.remove()}finally{done()}}}
+async function pjbV(){let c=S.cfgCache;if(!c){c=await run(()=>api('getCfg',S.t));if(!c)return;S.cfgCache=c}
+ const f=(k,l)=>`<div><label for="${k}">${l}</label><input id="${k}" class="inp" value="${esc(c[k])}"></div>`,
+ bl=(t,d,body)=>`<div class="glass p-5 mb-4"><b>${t}</b><p class="text-xs" style="color:var(--text-2)">${d}</p><div class="grid gap-3 md:grid-cols-2 mt-1">${body}</div></div>`,
+ K=['TTD_JABATAN','TTD_NAMA','TTD_PANGKAT','TTD_NIP','KWI_KPA_NAMA','KWI_KPA_NIP','KWI_BENDAHARA_NAMA','KWI_BENDAHARA_NIP'];
+ BID.forEach(b=>K.push('KWI_PPTK_'+b.toUpperCase()+'_NAMA','KWI_PPTK_'+b.toUpperCase()+'_NIP'));
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Pengaturan Pejabat Penandatangan</h1>
+ ${bl('Penandatangan Surat Tugas & SPPD','Pimpinan yang menandatangani Surat Tugas dan SPPD. File tanda tangan (PNG) diatur di Pengaturan Cetak.',f('TTD_JABATAN','Jabatan')+f('TTD_NAMA','Nama')+f('TTD_PANGKAT','Pangkat / Golongan')+f('TTD_NIP','NIP'))}
+ ${bl('Kuasa Pengguna Anggaran (Kwitansi)','Tampil pada bagian "Mengetahui".',f('KWI_KPA_NAMA','Nama')+f('KWI_KPA_NIP','NIP'))}
+ ${bl('Bendahara Pengeluaran (Kwitansi)','',f('KWI_BENDAHARA_NAMA','Nama')+f('KWI_BENDAHARA_NIP','NIP'))}
+ ${bl('Pejabat Pelaksana Teknis Kegiatan - Kepala Bidang (Kwitansi)','Otomatis mengikuti bidang pada Surat Tugas. Kosongkan jika belum ada.',BID.map(b=>f('KWI_PPTK_'+b.toUpperCase()+'_NAMA','Kepala Bidang '+b+' — Nama')+f('KWI_PPTK_'+b.toUpperCase()+'_NIP','Kepala Bidang '+b+' — NIP')).join(''))}
+ <button class="btn" id="sj">Simpan Pejabat Penandatangan</button>`;
+ $('#sj').onclick=async()=>{const o={};K.forEach(k=>o[k]=$('#'+k).value);const ok=await run(()=>api('saveCfg',S.t,o),'Pejabat penandatangan disimpan');if(ok)S.cfgCache=null}}
+async function cfgV(){let c=S.cfgCache;if(!c){c=await run(()=>api('getCfg',S.t));if(!c)return;S.cfgCache=c}
+ const num=(k,l)=>`<div><label for="${k}">${l}</label><input id="${k}" type="number" min="0" max="60" class="inp" value="${c[k]}"></div>`;
+ const blok=(p,t)=>`<div class="glass p-5 mb-4"><b>${t}</b><div class="grid gap-3 grid-cols-2 md:grid-cols-5">${num('UKURAN_'+p,'Ukuran huruf (pt)')}${num(p+'_ATAS','Margin atas (mm)')}${num(p+'_BAWAH','Margin bawah (mm)')}${num(p+'_KIRI','Margin kiri (mm)')}${num(p+'_KANAN','Margin kanan (mm)')}</div></div>`;
+ const KW=['KWI_KODE_REKENING','KWI_PREFIX','TARIF_LUAR','TARIF_DALAM','TARIF_LUARDAERAH'],txt=(k,l,w)=>`<div class="${w?'md:col-span-2':''}"><label for="${k}">${l}</label><input id="${k}" class="inp" value="${esc(c[k])}"></div>`,
+ NUM=['UKURAN_ST','ST_ATAS','ST_BAWAH','ST_KIRI','ST_KANAN','UKURAN_SP','SP_ATAS','SP_BAWAH','SP_KIRI','SP_KANAN','TTD_LEBAR'];
+ $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Pengaturan Cetak PDF</h1><div class="glass p-5 mb-4 grid gap-3 md:grid-cols-2">
+ <div><label for="KERTAS">Ukuran kertas (Surat Tugas & SPPD)</label><select id="KERTAS" class="inp">${[['Legal','Legal 8.5 × 14 in (216 × 356 mm)'],['Letter','Letter 8.5 × 11 in (216 × 279 mm)']].map(([v,t])=>`<option value="${v}" ${v==c.KERTAS?'selected':''}>${t}</option>`).join('')}</select></div>
+ <div><label for="FONT">Jenis huruf</label><select id="FONT" class="inp">${['Arial Narrow','Archivo Narrow','Arial'].map(f=>`<option ${f==c.FONT?'selected':''}>${f}</option>`).join('')}</select></div></div>
+ ${blok('ST','Surat Tugas')}${blok('SP','SPPD')}
+ <div class="glass p-5 mb-4"><b>Tanda Tangan Pimpinan (PNG)</b><p class="text-xs" style="color:var(--text-2)">Gunakan PNG berlatar transparan, maksimal ± 700 KB. Tampil di Surat Tugas dan SPPD di atas nama penandatangan.</p>
+ <div class="flex flex-wrap gap-4 items-center mt-2"><div id="tp" style="width:180px;height:90px;background:#fff;border-radius:.5rem;display:flex;align-items:center;justify-content:center;color:#777;font-size:12px">${c.TTD?`<img src="${c.TTD}" alt="Tanda tangan" style="max-width:100%;max-height:100%">`:'Belum ada TTD'}</div>
+ <div class="flex-1" style="min-width:220px"><input id="tf" type="file" accept="image/png" class="inp" aria-label="File tanda tangan PNG"><div class="flex gap-2 mt-2"><button class="btn" id="tu">Unggah TTD</button><button class="btn-d" id="td">Hapus TTD</button></div></div>
+ <div style="width:160px">${num('TTD_LEBAR','Lebar TTD (mm)')}</div></div></div>
+ <div class="glass p-5 mb-4"><b>Kwitansi</b><div class="grid gap-3 md:grid-cols-2 mt-1">${txt('KWI_KODE_REKENING','Kode Rekening bawaan — dipakai jika bidang belum mengisi (pisahkan dengan spasi)',1)}${txt('KWI_PREFIX','Awalan "Sebagai pembayaran" (diikuti Maksud Perjalanan Dinas)',1)}${txt('TARIF_DALAM','Tarif per hari - Dalam Kota (Rp)')}${txt('TARIF_LUAR','Tarif per hari - Luar Kota (Rp)')}${txt('TARIF_LUARDAERAH','Tarif per hari - Luar Daerah (Rp)')}</div></div>
+ <button class="btn" id="sc">Simpan Pengaturan</button>
+ <div class="glass p-5 mt-6" style="border:1px solid var(--red)"><b style="color:var(--red)">Zona Berbahaya</b>
+ <p class="text-xs mt-1" style="color:var(--text-2)">Mengosongkan seluruh Data SPPD, Kwitansi, dan Laporan Perjalanan Dinas, lalu mengembalikan nomor Surat Tugas &amp; SPPD mulai dari awal. Data DPA, Log Aktivitas, Data Master Pegawai, dan Manajemen Pengguna tidak terpengaruh. Tindakan ini tidak bisa dibatalkan.</p>
+ <button class="btn-d mt-3" id="rd">RESET DATA</button></div>`;
+ $('#tu').onclick=()=>{const f=$('#tf').files[0];if(!f)return toast('Pilih file PNG terlebih dahulu',1);if(f.type!=='image/png')return toast('File harus berformat PNG',1);if(f.size>700*1024)return toast('Ukuran file maksimal 700 KB',1);
+  const fr=new FileReader();fr.onload=async()=>{const u=await run(()=>api('saveTtd',S.t,fr.result),'Tanda tangan tersimpan');if(u){S.cfgCache=null;$('#tp').innerHTML=`<img src="${u}" alt="Tanda tangan" style="max-width:100%;max-height:100%">`}};fr.readAsDataURL(f)};
+ $('#td').onclick=async()=>{if(!await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus tanda tangan pimpinan?'))return;await run(()=>api('delTtd',S.t),'Tanda tangan dihapus');S.cfgCache=null;cfgV()};
+ $('#sc').onclick=async()=>{const f={FONT:$('#FONT').value,KERTAS:$('#KERTAS').value};NUM.concat(KW).forEach(k=>f[k]=$('#'+k).value);const ok=await run(()=>api('saveCfg',S.t,f),'Pengaturan disimpan');if(ok)S.cfgCache=null};
+ $('#rd').onclick=resetDataDlg}
+function resetDataDlg(){const m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-md"><h2 class="text-lg font-bold" style="color:var(--red)">RESET DATA</h2>
+ <p class="text-sm mt-2">Peringatan!! Tindakan ini akan <b>menghapus seluruh Data SPPD, Kwitansi, dan Laporan Perjalanan Dinas</b>, serta mengembalikan nomor Surat Tugas &amp; SPPD mulai dari awal. Tindakan ini <b>tidak bisa dibatalkan</b>.</p>
+ <label for="rp1" class="block mt-3">Masukkan sandi akun Anda untuk melanjutkan</label><input id="rp1" type="password" class="inp" autocomplete="current-password">
+ <p id="rp2" class="text-xs mt-2" style="color:var(--red)"></p>
+ <div class="flex gap-2 justify-end mt-4"><button class="btn2" id="rx">Batal</button><button class="btn-d" id="rk">Reset Data Sekarang</button></div></div>`;
+ document.body.appendChild(m);$('#rp1').focus();
+ $('#rx').onclick=()=>m.remove();
+ $('#rk').onclick=async()=>{const pass=$('#rp1').value;if(!pass){$('#rp2').textContent='Sandi wajib diisi.';return}
+  const done=busy($('#rk'),'Memproses…');
+  try{const ok=await run(()=>api('resetData',S.t,pass));if(ok){m.remove();toast('Data SPPD, Kwitansi, dan Laporan berhasil direset. Nomor Surat Tugas/SPPD dimulai dari awal.');S.view='dash';load()}else if(document.body.contains(m)){$('#rp1').value=''}}finally{done()}}}
+restore();

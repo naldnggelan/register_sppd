@@ -1,0 +1,17 @@
+{
+  "navLabels": {
+    "dash": "Dashboard",
+    "rekap": "Rekap",
+    "input": "Input",
+    "kwi": "Kwitansi",
+    "dpa": "DPA",
+    "pencairan": "Pencairan",
+    "lap": "Laporan",
+    "bku": "BKU",
+    "pegawai": "Pegawai",
+    "users": "Pengguna",
+    "pjb": "TTD",
+    "cfg": "Cetak",
+    "log": "Log"
+  }
+}
