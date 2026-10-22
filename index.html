@@ -116,7 +116,7 @@ td.t{padding:.7rem;border-bottom:1px solid var(--line);vertical-align:top}tr:hov
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function apiOnce_(f,a,ms){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),ms);try{const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:f,args:a}),signal:ctrl.signal});const text=await res.text();try{return JSON.parse(text)}catch(e){return{success:false,net_:true,message:'Server membalas format tidak dikenal.'}}}catch(e){return{success:false,net_:true,message:e.name==='AbortError'?'Server terlalu lama merespons.':'Koneksi terputus.'}}finally{clearTimeout(timer)}}
-const api=async(f,...a)=>{let r;for(let i=0;i<2;i++){if(i)await new Promise(ok=>setTimeout(ok,600));r=await apiOnce_(f,a,i?15000:12000);if(r.success)break;if(!r.net_&&r.message!=='Gunakan POST untuk semua permintaan.')break}if(!r.success)throw new Error(r.message||'Terjadi kesalahan.');return r.data};
+const api=async(f,...a)=>{let r;for(let i=0;i<4;i++){if(i)await new Promise(ok=>setTimeout(ok,i*700));r=await apiOnce_(f,a,i<2?12000:15000);if(r.success)break;if(!r.net_&&r.message!=='Gunakan POST untuk semua permintaan.')break}if(!r.success)throw new Error(r.message||'Terjadi kesalahan.');return r.data};
 const BL=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const BID=['Trantibum','Sekretariat','Linmas','Damkar'];
 const idn=s=>{if(!s)return'-';const[y,m,d]=s.split('-');return d+' '+BL[m-1].slice(0,3)+' '+y};
