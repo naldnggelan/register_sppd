@@ -123,7 +123,7 @@ ${mi.length>1?`<nav id="bnav">${mi.slice(0,2).map(m=>bitemHtml(m)).join('')}<div
  if($('#bmore'))$('#bmore').onclick=bmenuSheet;
  document.querySelectorAll('.nav,.bitem').forEach(n=>n.onclick=()=>{if(n.classList.contains('on'))return;S.view=n.dataset.v;S.page=1;shell()});
  $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#rf').onclick=()=>refresh(false);stamp();
- ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,pencairan:pencairanV,rrpd:rrpdV,lap:lapV,pjb:pjbV,bku:bkuV,log:logV})[S.view]()}
+ ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,pencairan:pencairanV,rrpd:rrpdV,lap:lapV,pjb:pjbV,bku:bkuV,log:logV})[S.view]();if(!S._pf){S._pf=1;setTimeout(prefetchKeu,1500)}}
 const dlXlsx=p=>dl('data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+p.b64,p.name);
 async function logV(){const r=await run(()=>api('logList',S.t));if(!r)return;
  $('#main').innerHTML=`<div class="flex items-center justify-between flex-wrap gap-2 mb-3"><div><h1 class="text-2xl font-bold">Log Aktivitas</h1><p class="text-xs" style="color:var(--text-2)">Riwayat login, penerbitan/ubah/hapus Surat Tugas, Kwitansi, Laporan, dan manajemen pengguna. Menampilkan ${r.length} aktivitas terakhir.</p></div><button class="btn2" id="logClr" ${r.length?'':'disabled'}><span class="ms">delete_sweep</span> Hapus Log</button></div>
@@ -298,7 +298,7 @@ function pengajuanRincianDlg(judul,rincian){const m=document.createElement('div'
 function pengajuanTolakDlg(id){const m=document.createElement('div');m.className='modal';
  m.innerHTML=`<div class="glass2 p-6 w-full max-w-lg"><h2 class="text-lg font-bold">Tolak Pengajuan Pencairan</h2><label for="tc1">Catatan / Alasan Penolakan</label><textarea id="tc1" class="inp" rows="3" placeholder="Wajib diisi…"></textarea><div class="flex gap-2 justify-end mt-4"><button class="btn2" id="tcx">Batal</button><button class="btn-d" id="tck">Tolak Pengajuan</button></div></div>`;
  document.body.appendChild(m);$('#tcx').onclick=()=>m.remove();
- $('#tck').onclick=async()=>{const c=$('#tc1').value.trim();if(!c)return warnToast('Catatan alasan penolakan wajib diisi.');const done=busy($('#tck'),'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,id,false,c),'Pengajuan ditolak');if(ok){m.remove();S.ajuanList=null;pencairanV()}}finally{done()}}}
+ $('#tck').onclick=async()=>{const c=$('#tc1').value.trim();if(!c)return warnToast('Catatan alasan penolakan wajib diisi.');const done=busy($('#tck'),'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,id,false,c),'Pengajuan ditolak');if(ok){m.remove();S.ajuanList=null;S.kasSnap=null;pencairanV()}}finally{done()}}}
 async function pencairanV(){S.role==='Admin'?await pencairanAdminV():await pencairanKasubagV()}
 // ---------- Ajukan Pencairan lewat WhatsApp ----------
 // Super Admin mengatur (Dashboard): aktif/nonaktif, nomor WhatsApp Kasubag Keuangan, template pesan.
@@ -323,11 +323,21 @@ async function waKirimDlg(id){if(!waSiap())return toast('Fitur WhatsApp belum di
  <div class="flex gap-2 justify-end mt-4 flex-wrap"><button class="btn2" id="waX">Tutup</button><a class="btn" id="waGo" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;background:#25D366"><span class="ms">chat</span> Buka WhatsApp &amp; Kirim</a></div></div>`;
  document.body.appendChild(m);const go=$('#waGo'),ta=$('#waMsg');go.href=link(ta.value);ta.oninput=()=>go.href=link(ta.value);
  $('#waX').onclick=()=>m.remove();go.onclick=()=>setTimeout(()=>m.remove(),300)}
+// ---------- Percepatan halaman Pengajuan Pencairan & RRPD ----------
+// Tampil seketika dari data terakhir (snapshot per akun), lalu diperbarui diam-diam di belakang layar; semua permintaan dikirim bersamaan.
+const ajuK=()=>S.role+'|'+S.bidang+'|'+S.nama;
+const ajuLoad=()=>{$('#main').innerHTML='<h1 class="text-2xl font-bold mb-3">Pengajuan Pencairan Perjalanan Dinas</h1><div class="glass p-5" style="color:var(--text-2)"><span class="spin"></span> Memuat Pengajuan Pencairan…</div>'};
+const ajuBebas=()=>S.view==='pencairan'&&!document.querySelector('.modal')&&!document.querySelector('.ajuanChk:checked'); // jangan render ulang saat admin sedang memilih/membuka dialog
+const ajuAmbilA=()=>Promise.all([api('pencairanEligible',S.t),api('pengajuanList',S.t),api('waInfo',S.t).catch(()=>null)]);
+const ajuAmbilK=y=>Promise.all([api('pengajuanList',S.t),api('dpaGet',S.t,y).catch(()=>[])]);
 async function pencairanAdminV(){
- const waP=api('waInfo',S.t).catch(()=>null); // pengaturan WhatsApp diambil bersamaan
- let elig=S.ajuanElig;if(!elig){elig=await run(()=>api('pencairanEligible',S.t));if(!elig)return;S.ajuanElig=elig}
- let riw=S.ajuanList;if(!riw){riw=await run(()=>api('pengajuanList',S.t));if(!riw)return;S.ajuanList=riw}
- S.waCfg=await waP||S.waCfg;
+ const k=ajuK(),c=S.ajuSnap&&S.ajuSnap.k===k?S.ajuSnap:null,wa0=JSON.stringify(S.waCfg||null);
+ if(c)pencairanAdminR(c.elig,c.riw);else ajuLoad();
+ const p=ajuAmbilA(),r=c?await p.catch(()=>null):await run(()=>p);if(!r||ajuK()!==k)return;
+ const [elig,riw,wa]=r;S.ajuanElig=elig;S.ajuanList=riw;if(wa)S.waCfg=wa;S.ajuSnap={k,elig,riw};
+ if(!c){if(S.view==='pencairan')pencairanAdminR(elig,riw);return}
+ if(ajuBebas()&&(JSON.stringify([elig,riw])!==JSON.stringify([c.elig,c.riw])||JSON.stringify(S.waCfg||null)!==wa0))pencairanAdminR(elig,riw)}
+function pencairanAdminR(elig,riw){
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Pengajuan Pencairan Perjalanan Dinas</h1>
  <div class="glass p-4 mb-4"><b>Ajukan Pencairan Baru</b><p class="text-xs mb-3" style="color:var(--text-2)">Pilih Surat Tugas yang Kwitansinya sudah diatur, untuk diajukan pencairannya ke Kasubag Keuangan.</p>
  <div class="overflow-x-auto"><table class="w-full" style="min-width:920px"><thead><tr><th><input type="checkbox" id="selAll" aria-label="Pilih semua"></th><th>Tgl ST</th><th>No. Surat Tugas</th><th>Tujuan</th><th>Maksud Perjalanan Dinas</th><th>Jml Petugas</th><th>Jenis</th><th>Jumlah</th></tr></thead><tbody>
@@ -342,12 +352,26 @@ async function pencairanAdminV(){
  if($('#selAll'))$('#selAll').onchange=e=>{document.querySelectorAll('.ajuanChk').forEach(c=>c.checked=e.target.checked);recalc()};
  $('#ajuanBtn').onclick=async()=>{const keys=[...document.querySelectorAll('.ajuanChk:checked')].map(c=>c.value);if(!keys.length)return;
   if(!await confirmDlg('Ajukan pencairan untuk '+keys.length+' Surat Tugas senilai '+$('#ajuanTot').textContent+' ke Kasubag Keuangan?','Konfirmasi Pengajuan'))return;
-  const done=busy($('#ajuanBtn'),'Mengajukan…');try{const r=await run(()=>api('pengajuanAjukan',S.t,keys),'Pengajuan Pencairan terkirim');if(r){S.ajuanElig=null;S.ajuanList=null;await pencairanV();if(waSiap())waKirimDlg(r.id)}}finally{done()}};
+  const done=busy($('#ajuanBtn'),'Mengajukan…');try{const r=await run(()=>api('pengajuanAjukan',S.t,keys),'Pengajuan Pencairan terkirim');if(r){S.ajuanElig=null;S.ajuanList=null;S.ajuSnap=null;await pencairanV();if(waSiap())waKirimDlg(r.id)}}finally{done()}};
  document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{const r=await run(()=>api('pengajuanRincian',S.t,b.dataset.r));if(r)pengajuanRincianDlg('Rincian Pengajuan Pencairan',r)});
  document.querySelectorAll('[data-wa]').forEach(b=>b.onclick=async()=>{const done=busy(b,'');try{await waKirimDlg(b.dataset.wa)}finally{done()}})}
 async function pencairanKasubagV(){
- let riw=S.ajuanList;if(!riw){riw=await run(()=>api('pengajuanList',S.t));if(!riw)return;S.ajuanList=riw}
- let dpa=S.dpaCache[S.yr];if(!dpa){try{dpa=await api('dpaGet',S.t,S.yr);S.dpaCache[S.yr]=dpa}catch(e){dpa=[]}}
+ const y=S.yr,k=ajuK()+'|'+y,c=S.kasSnap&&S.kasSnap.k===k?S.kasSnap:null;
+ if(c)pencairanKasubagR(c.riw,c.dpa);else ajuLoad();
+ const p=ajuAmbilK(y),r=c?await p.catch(()=>null):await run(()=>p);if(!r||ajuK()+'|'+y!==k)return;
+ const [riw,dpa]=r;S.ajuanList=riw;if(dpa&&dpa.length)S.dpaCache[y]=dpa;S.kasSnap={k,riw,dpa:dpa||[]};
+ if(!c){if(S.view==='pencairan')pencairanKasubagR(riw,dpa||[]);return}
+ if(ajuBebas()&&JSON.stringify([riw,dpa])!==JSON.stringify([c.riw,c.dpa]))pencairanKasubagR(riw,dpa||[])}
+async function prefetchKeu(){ // muat data Pengajuan Pencairan & RRPD di belakang layar sesaat setelah masuk, supaya saat menu dibuka langsung tampil
+ const ms=menu().map(m=>m[0]),k=ajuK(),y=S.yr;
+ try{
+  if(ms.includes('pencairan')&&S.view!=='pencairan'){
+   if(S.role==='Admin'){if(!(S.ajuSnap&&S.ajuSnap.k===k)){const [elig,riw,wa]=await ajuAmbilA();if(ajuK()!==k)return;S.ajuanElig=elig;S.ajuanList=riw;if(wa)S.waCfg=wa;S.ajuSnap={k,elig,riw}}}
+   else if(!(S.kasSnap&&S.kasSnap.k===k+'|'+y)){const [riw,dpa]=await ajuAmbilK(y);if(ajuK()!==k)return;S.ajuanList=riw;S.kasSnap={k:k+'|'+y,riw,dpa:dpa||[]}}
+  }
+  if(ms.includes('rrpd')&&S.view!=='rrpd'){S.rrpdCache=S.rrpdCache||{};if(!S.rrpdCache[y]){const r=await api('rrpdList',S.t,y);if(ajuK()===k)S.rrpdCache[y]=r}}
+ }catch(e){}}
+function pencairanKasubagR(riw,dpa){
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Pengajuan Pencairan Perjalanan Dinas</h1>
  <div class="glass p-4 mb-4"><b>Sisa Anggaran Tiap Bidang (${S.yr})</b><div class="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-3">
  ${dpa.map(x=>`<div class="glass2 p-3">${badge(x.Bidang)}<div class="text-xl font-bold mt-2" style="color:${x.Sisa<0?'var(--red)':'var(--accent-text)'}">${rpf(x.Sisa)}</div><div class="text-xs" style="color:var(--text-2)">dari Pagu ${rpf(x.Pagu)}</div></div>`).join('')||'<small style="color:var(--text-2)">Data DPA belum tersedia.</small>'}
@@ -358,7 +382,7 @@ async function pencairanKasubagV(){
  <td class="t"><div class="flex gap-1 flex-wrap"><button class="btn2" data-r="${esc(x.id)}">Lihat Rincian</button>${x.status==='Diajukan'?`<button class="btn" data-ok="${esc(x.id)}">Setujui</button><button class="btn-d" data-no="${esc(x.id)}">Tolak</button>`:''}</div></td></tr>`).join('')||'<tr><td class="t" colspan="8">Belum ada pengajuan.</td></tr>'}
  </tbody></table></div>`;
  document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{const r=await run(()=>api('pengajuanRincian',S.t,b.dataset.r));if(r)pengajuanRincianDlg('Rincian Pengajuan Pencairan',r)});
- document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!await confirmDlg('Setujui pengajuan pencairan ini?'))return;const done=busy(b,'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,b.dataset.ok,true,''),'Pengajuan disetujui');if(ok){S.ajuanList=null;S.dpaCache={};pencairanV()}}finally{done()}});
+ document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!await confirmDlg('Setujui pengajuan pencairan ini?'))return;const done=busy(b,'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,b.dataset.ok,true,''),'Pengajuan disetujui');if(ok){S.ajuanList=null;S.kasSnap=null;S.dpaCache={};pencairanV()}}finally{done()}});
  document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>pengajuanTolakDlg(b.dataset.no))}
 const idnF=s=>{if(!s)return'-';const[y,m,d]=s.split('-');return d+' '+BL[m-1]+' '+y};
 function lapGen(rs){const x=rs[0],tg=x.Berangkat===x.Kembali?idnF(x.Berangkat):idnF(x.Berangkat)+' s.d. '+idnF(x.Kembali);
