@@ -51,6 +51,17 @@ function applyLogin(L){if(!L)return;const q=s=>document.querySelector(s),t=(s,v)
  const w=q('#lw');if(w){w.style.justifyContent=L.posisi==='Kiri'?'flex-start':L.posisi==='Kanan'?'flex-end':'center';w.style.paddingInline='clamp(1rem,6vw,5rem)'}
  const g=q('#lg');if(g&&L.logoSize){g.style.width=g.style.height=L.logoSize+'px'}
  if(/^https:\/\//.test(L.bg||'')){const s=document.documentElement.style;s.setProperty('--bg-img','url("'+L.bg+'")');document.documentElement.classList.add('hasbg')}}
+// Layar proses di tengah layar (dipakai saat Penerbitan Surat Tugas & SPPD): menutup seluruh layar supaya Admin tahu proses sedang
+// berjalan dan tidak menekan tombol dua kali. Mengembalikan {step(teks), tutup()}.
+function prosesLayar(judul,teks){
+ if(!document.getElementById('prosesCss')){const st=document.createElement('style');st.id='prosesCss';st.textContent='@keyframes prosesBar{0%{left:-40%}100%{left:100%}}@keyframes prosesDenyut{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.08);opacity:.85}}@media(prefers-reduced-motion:reduce){.proses-bar i,.proses-ikon{animation:none!important}}';document.head.appendChild(st)}
+ const m=document.createElement('div');m.className='modal';m.style.cssText='z-index:97;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)';m.setAttribute('role','alertdialog');m.setAttribute('aria-live','assertive');
+ m.innerHTML=`<div class="glass2 p-8" style="width:min(360px,100%);text-align:center"><div style="position:relative;width:76px;height:76px;margin:0 auto 18px"><div class="spin-lg" style="width:76px;height:76px;margin:0;position:absolute;inset:0"></div><span class="ms proses-ikon" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--accent-text);animation:prosesDenyut 1.4s ease-in-out infinite">edit_document</span></div>
+ <div class="font-bold text-lg" style="color:var(--heading)">${esc(judul)}</div><div id="prosesTeks" class="text-sm mt-1" style="color:var(--text-2)">${esc(teks||'')}</div>
+ <div class="proses-bar" style="position:relative;height:6px;border-radius:9px;background:var(--line);overflow:hidden;margin-top:18px"><i style="position:absolute;top:0;left:-40%;width:40%;height:100%;border-radius:9px;background:var(--accent-text);animation:prosesBar 1.1s ease-in-out infinite"></i></div>
+ <div class="text-xs mt-3" style="color:var(--text-2)">Mohon tunggu, jangan tutup atau muat ulang halaman ini.</div></div>`;
+ document.body.appendChild(m);
+ return{step:t=>{const e=m.querySelector('#prosesTeks');if(e)e.textContent=t},tutup:()=>m.remove()}}
 function loadingCard(msg){$('#app').innerHTML=`<div class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8" style="min-width:260px;text-align:center"><div class="spin-lg"></div><div class="font-semibold" style="color:var(--heading)">${esc(msg)}</div><div class="text-xs mt-1" style="color:var(--text-2)">REGISTER SPPD</div></div></div>`}
 function loginView(){$('#app').innerHTML=`<button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema" style="position:fixed;top:12px;right:12px;z-index:5"><span class="ms" id="thi"></span></button><div id="lw" class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8 w-full max-w-md">
 <div class="text-center"><div id="lg" style="width:84px;height:84px;margin:0 auto" class="flex items-center justify-center"><div style="background:var(--primary);color:#fff;width:64px;height:64px;border-radius:16px" class="flex items-center justify-center"><span class="ms" style="font-size:34px">assignment_turned_in</span></div></div>
@@ -385,7 +396,8 @@ function inputV(){const lastST=S.lastST;S.lastST=null;$('#main').innerHTML=`${la
  $('#sb').onclick=async()=>{if($('#f1').value<today()||$('#f2').value<today())return toast('Tanggal tidak boleh tanggal yang sudah berlalu.',1);
   const sk=$('#f7').selectedOptions[0];
   const f={tgl:$('#f1').value,berangkat:$('#f2').value,lama:$('#f3').value,bidang:$('#f4').value,tujuan:$('#f5').value,maksud:$('#f6').value,nips:S.pick,subKegiatan:sk&&sk.value?sk.dataset.nama:'',jenisPerjalanan:sk&&sk.value?sk.dataset.jenis:''};
-  const r=await run(()=>api('saveST',S.t,f));if(!r)return;toast('Terbit: '+r.noST);S.pick=[];S.lastST=r.noST;S.view='input';await load();const v=await run(()=>api('previewST',S.t,r.noST));if(v)prev(v,r.noST,'pdfST')}}
+  const pl=prosesLayar('Menerbitkan Surat Tugas & SPPD','Menyimpan data dan mengambil nomor Surat Tugas…'); // animasi proses di tengah layar sampai pratinjau Surat Tugas siap
+  try{const r=await run(()=>api('saveST',S.t,f));if(!r)return;toast('Terbit: '+r.noST);S.pick=[];S.lastST=r.noST;S.view='input';pl.step('Nomor '+r.noST+' terbit. Memperbarui data…');await load();pl.step('Menyiapkan tampilan Surat Tugas…');const v=await run(()=>api('previewST',S.t,r.noST));pl.tutup();if(v)prev(v,r.noST,'pdfST')}finally{pl.tutup()}}}
 function chips(){$('#chips').innerHTML=S.pick.map((n,i)=>{const p=S.pg.find(x=>String(x.NIP)===n);return`<div class="glass p-3 mb-2 flex justify-between items-center"><div><b>${i+1}. ${esc(p.Nama)}</b><br><small>${esc(p.Pangkat)} · NIP ${esc(p.NIP)} · ${esc(p.Jabatan)}</small></div><button class="btn-d" aria-label="Hapus" onclick="S.pick.splice(${i},1);chips()"><span class="ms">close</span></button></div>`}).join('')||'<small style="color:var(--text-2)">Belum ada pegawai dipilih.</small>'}
 
 async function pegV(){let c=S.pegCache;if(!c){c=await run(()=>api('pegawaiList',S.t));if(!c)return;S.pegCache=c}
