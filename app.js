@@ -21,7 +21,7 @@ const badge=b=>`<span class="bd" style="background:color-mix(in srgb,var(--b-${(
 const S0=()=>({t:'',role:'',nama:'',d:[],pg:[],us:[],jadwal:[],bidang:'',lap:[],wil:[],foto:'',kwi:[],tarif:{luar:170000,dalam:70000,luarDaerah:450000},logo:'',footer:'',view:'dash',page:1,q:'',fb:'',fm:'',yr:String(new Date().getFullYear()),pick:[],cfgCache:null,dpaCache:{},bkuCache:null,pegCache:null,maintenance:false});
 let S=S0(),charts=[];
 const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
-async function logout(){const t=S.t;clearInterval(window._pv);store.del('sppd_t');store.del('sppd_v');charts.forEach(c=>c.destroy());charts=[];document.querySelectorAll('.modal').forEach(m=>m.remove());S=S0();loginView();if(t)api('logout',t).catch(()=>{})}
+async function logout(){const t=S.t;clearInterval(window._pv);store.del('sppd_t');store.del('sppd_v');store.del('sppd_boot');charts.forEach(c=>c.destroy());charts=[];document.querySelectorAll('.modal').forEach(m=>m.remove());S=S0();loginView();if(t)api('logout',t).catch(()=>{})}
 const BIDX=()=>sup()?BID:[S.bidang],adm=()=>S.role==='Admin'||S.role==='Super Admin',sup=()=>S.role==='Super Admin',dpaRO=()=>S.role==='Kasubag Keuangan'; // Kasubag Keuangan: DPA hanya bisa dilihat, tidak bisa diubah
 const dl=(u,n)=>{const A=document.createElement('a');A.href=u;A.download=n;document.body.appendChild(A);A.click();A.remove()};
 const ava=(u,n,s)=>u?`<img src="${esc(u)}" alt="Foto ${esc(n)}" style="width:${s}px;height:${s}px;border-radius:50%;object-fit:cover">`:`<span style="width:${s}px;height:${s}px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--primary);color:#fff;font-weight:700">${esc((n||'?')[0])}</span>`;
@@ -62,13 +62,17 @@ function prosesLayar(judul,teks){
  <div class="text-xs mt-3" style="color:var(--text-2)">Mohon tunggu, jangan tutup atau muat ulang halaman ini.</div></div>`;
  document.body.appendChild(m);
  return{step:t=>{const e=m.querySelector('#prosesTeks');if(e)e.textContent=t},tutup:()=>m.remove()}}
-function loadingCard(msg){$('#app').innerHTML=`<div class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8" style="min-width:260px;text-align:center"><div class="spin-lg"></div><div class="font-semibold" style="color:var(--heading)">${esc(msg)}</div><div class="text-xs mt-1" style="color:var(--text-2)">REGISTER SPPD</div></div></div>`}
+function loadingCard(msg,steps){ // animasi loading: logo berdenyut di dalam cincin berputar + bar berjalan + keterangan langkah yang berganti
+ const lg=S.logo||store.get('sppd_logo')||'';
+ $('#app').innerHTML=`<div class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8 ldx" style="min-width:270px"><div class="ldx-ring"><div class="ldx-logo">${lg?`<img src="${esc(lg)}" alt="">`:'<span class="ms" style="font-size:38px;color:var(--accent-text)">assignment_turned_in</span>'}</div></div>
+ <div class="font-semibold" style="color:var(--heading)">${esc(msg)}</div><div class="ldx-bar"></div><div class="ldx-step" id="ldxs">${esc((steps||['REGISTER SPPD'])[0])}</div></div></div>`;
+ clearInterval(window._ldx);if(steps&&steps.length>1){let i=0;window._ldx=setInterval(()=>{const e=$('#ldxs');if(!e)return clearInterval(window._ldx);i=Math.min(i+1,steps.length-1);e.style.opacity=0;setTimeout(()=>{e.textContent=steps[i];e.style.opacity=1},200)},1400)}}
 function loginView(){$('#app').innerHTML=`<button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema" style="position:fixed;top:12px;right:12px;z-index:5"><span class="ms" id="thi"></span></button><div id="lw" class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8 w-full max-w-md">
 <div class="text-center"><div id="lg" style="width:84px;height:84px;margin:0 auto" class="flex items-center justify-center"><div style="background:var(--primary);color:#fff;width:64px;height:64px;border-radius:16px" class="flex items-center justify-center"><span class="ms" style="font-size:34px">assignment_turned_in</span></div></div>
 <div id="lb" class="text-xs font-bold mt-3" style="letter-spacing:.1em;color:var(--accent-text);display:none"></div><h1 id="lt" class="text-2xl font-bold mt-1" style="color:var(--heading)">REGISTER SPPD</h1><p id="ls" style="color:var(--text-2)">Penomoran & Registrasi Surat Tugas / SPPD</p></div>
 <label id="lu" for="u">Username / NIP</label><input id="u" class="inp" autocomplete="username"><label id="lp" for="p">Kata Sandi</label><div style="position:relative"><input id="p" type="password" class="inp" autocomplete="current-password" style="padding-right:2.6rem"><button type="button" id="pv" class="ms" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" style="position:absolute;right:.4rem;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;color:var(--text-2);padding:.3rem;line-height:1">visibility</button></div>
 <button class="btn w-full mt-5" id="go">Masuk ke Sistem</button><div id="lf" class="text-center text-xs mt-5" style="color:var(--text-2)"></div></div></div>`;
- const go=async()=>{const uname=$('#u').value,pass=$('#p').value;loadingCard('Masuk ke sistem…');
+ const go=async()=>{const uname=$('#u').value,pass=$('#p').value;loadingCard('Masuk ke sistem…',['Memeriksa akun…','Mengambil data…','Menyiapkan dashboard…','Hampir selesai…']);
   const r=await run(()=>api('login',uname,pass));
   if(!r){if(S._maint){S._maint=false;return}loginView();const iu=$('#u');if(iu){iu.value=uname;iu.focus()}return}
   Object.assign(S,{t:r.t,role:r.role,nama:r.nama});store.set('sppd_t',r.t);fill(r);
@@ -81,9 +85,10 @@ function loginView(){$('#app').innerHTML=`<button class="btn2" id="th" aria-labe
  api('publicInfo').then(r=>{if(!r)return;look(r.look);store.set('sppd_look',JSON.stringify(r.look||{}));if(r.login){store.set('sppd_login',JSON.stringify(r.login));applyLogin(r.login)}if($('#lf'))$('#lf').textContent=r.footer||'';if(r.logo&&$('#lg')){$('#lg').innerHTML=`<img src="${r.logo}" alt="Logo" style="max-width:100%;max-height:100%">`;store.set('sppd_logo',r.logo)}}).catch(()=>{})}
 function loginSuccessAnim(){return new Promise(res=>{const d=document.createElement('div');d.className='loksucc';
  d.innerHTML=`<div class="lokcheck"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6"/></svg></div><div class="lokt">LOGIN SUCCESS!!</div>`;
- document.body.appendChild(d);setTimeout(()=>{d.remove();res()},1200)})}
+ document.body.appendChild(d);setTimeout(()=>{d.remove();res()},700)})}
 function stamp(){const e=$('#sy');if(e&&S.at)e.textContent='Diperbarui '+S.at.toLocaleTimeString('id-ID',{hour12:false}).replace(/\./g,':')}
-function fill(r){S.cfgCache=null;S.dpaCache={};S.bkuCache=null;S.pegCache=null;S.ajuanElig=null;S.ajuanList=null;S.maintenance=!!r.maintenance;S.maintPesan=r.maintPesan||'';S.ver=r.ver;S.sync=r.sync||60;S.at=new Date();if(r.role){S.role=r.role;S.nama=r.nama}S.bidang=r.bidang||'';S.jadwal=r.jadwal||[];S.d=r.data;S.pg=r.pegawai;S.us=r.users;S.kwi=r.kwi||[];S.lap=r.lap||[];S.wil=r.wilayah||[];S.foto=r.foto||'';S.tarif=r.tarif||S.tarif;S.logo=r.logo;S.footer=r.footer;look(r.look)}
+function fill(r){S.cfgCache=null;S.dpaCache={};S.bkuCache=null;S.pegCache=null;S.ajuanElig=null;S.ajuanList=null;S.maintenance=!!r.maintenance;S.maintPesan=r.maintPesan||'';S.ver=r.ver;S.sync=r.sync||60;S.at=new Date();if(r.role){S.role=r.role;S.nama=r.nama}S.bidang=r.bidang||'';S.jadwal=r.jadwal||[];S.d=r.data;S.pg=r.pegawai;S.us=r.users;S.kwi=r.kwi||[];S.lap=r.lap||[];S.wil=r.wilayah||[];S.foto=r.foto||'';S.tarif=r.tarif||S.tarif;S.logo=r.logo;S.footer=r.footer;look(r.look);
+ if(S.t&&!r._t){try{localStorage.setItem('sppd_boot',JSON.stringify(Object.assign({},r,{_t:S.t,t:undefined})))}catch(e){store.del('sppd_boot')}}} // simpan data terakhir di perangkat ini untuk pembukaan berikutnya yang instan
 async function load(){const r=await run(()=>api('boot',S.t));if(!r)return;fill(r);shell()}
 /* Sinkron otomatis: periksa perubahan Spreadsheet secara berkala; muat ulang data bila berubah */
 async function refresh(silent){let r;try{r=await api('boot',S.t)}catch(e){const m=e.message||'';if(/Sesi berakhir/.test(m))return logout();if(/^\[MAINT\]|dalam perbaikan/.test(m))return maintScreen(m);if(!silent)toast(m||'Gagal memuat data',1);return}
@@ -96,7 +101,10 @@ async function refresh(silent){let r;try{r=await api('boot',S.t)}catch(e){const 
  // menyimpan isiannya di S.q dan menggambar ulang nilainya setiap render, jadi aman untuk digambar ulang di sini.
  const y=scrollY;shell();scrollTo(0,y)}
 async function restore(){const t=store.get('sppd_t'); // pulihkan sesi setelah halaman di-refresh
- if(!t)return loginView();S.t=t;loadingCard('Memuat…');
+ if(!t)return loginView();S.t=t;
+ let snap=null;try{snap=JSON.parse(store.get('sppd_boot')||'null')}catch(e){}
+ if(snap&&snap._t===t){try{fill(snap);const v=store.get('sppd_v');if(v&&menu().some(m=>m[0]===v))S.view=v;shell();refresh(true);return}catch(e){S=S0();S.t=t}} // buka seketika dari data terakhir di perangkat ini, lalu diperbarui dari server di belakang layar
+ loadingCard('Memuat…',['Memeriksa sesi…','Mengambil data…','Menyiapkan dashboard…']);
  try{const r=await api('boot',t);fill(r);const v=store.get('sppd_v');if(v&&menu().some(m=>m[0]===v))S.view=v;shell()}catch(e){const m=e.message||'';if(/^\[MAINT\]|dalam perbaikan/.test(m))return maintScreen(m);store.del('sppd_t');store.del('sppd_v');S=S0();loginView()}}
 
 const menu=()=>S.role==='Pegawai'?[['dash','dashboard','Dashboard & Statistik']]:S.role==='Kasubag Keuangan'?[['dash','dashboard','Dashboard & Statistik'],['dpa','account_balance_wallet','DPA Perjalanan Dinas'],['pencairan','request_quote','Pengajuan Pencairan'],RRPD_MENU,['kwi','receipt_long','Cetak Kwitansi'],['bku','menu_book','Buku Kas Umum (BKU)']]:['KABID','KASI','SEKRETARIS'].includes(S.role)?[['dash','dashboard','Dashboard & Statistik'],['dpa','account_balance_wallet','DPA Perjalanan Dinas'],RRPD_MENU,['bku','menu_book','Buku Kas Umum (BKU)']]:[['dash','dashboard','Dashboard & Statistik'],['rekap','table','Rekap & Data SPPD'],['input','edit_document','Input Surat Tugas & SPPD'],['kwi','receipt_long','Cetak Kwitansi'],['dpa','account_balance_wallet','DPA Perjalanan Dinas'],['pencairan','request_quote','Pengajuan Pencairan'],RRPD_MENU,['lap','summarize','Laporan Perjalanan Dinas'],...(sup()?[['bku','menu_book','Buku Kas Umum (BKU)'],['pegawai','badge','Data Master Pegawai'],['users','manage_accounts','Manajemen Pengguna'],['pjb','draw','Pejabat Penandatangan'],['cfg','print','Pengaturan Cetak'],['log','history','Log Aktivitas']]:[])];
