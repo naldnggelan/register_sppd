@@ -2,7 +2,7 @@ const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>(
 async function apiOnce_(f,a,ms){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),ms);try{const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:f,args:a}),signal:ctrl.signal});const text=await res.text();try{return JSON.parse(text)}catch(e){return{success:false,net_:true,message:'Server membalas format tidak dikenal.'}}}catch(e){return{success:false,net_:true,abort_:e.name==='AbortError',message:e.name==='AbortError'?'Server terlalu lama merespons.':'Koneksi terputus.'}}finally{clearTimeout(timer)}}
 // Pembuatan dokumen (pratinjau/PDF/Word/Excel) memang butuh waktu lebih lama: diberi batas tunggu 2 menit dan TIDAK diulang otomatis
 // saat waktu tunggu habis - sebelumnya dipotong di 12-15 detik lalu diulang dari awal sampai 4x, sehingga totalnya jauh lebih lama.
-const SLOW_FN=/^(preview|previewST|previewSP|pdf|pdfST|pdfSP|kwiPreview|kwiPdf|kwiPdfBulan|lapPreview|lapPdf|bkuPreview|bkuPdf|exportDoc|exportRekapXlsx|exportDpaXlsx|exportBkuXlsx|exportRegisterXlsx|rrpdPreview|rrpdPdf|rrpdGenerate)$/;
+const SLOW_FN=/^(preview|previewST|previewSP|pdf|pdfST|pdfSP|kwiPreview|kwiPdf|kwiPdfBulan|lapPreview|lapPdf|bkuPreview|bkuPdf|exportDoc|exportRekapXlsx|exportDpaXlsx|exportBkuXlsx|exportRegisterXlsx|arsipkanTahun|rrpdPreview|rrpdPdf|rrpdGenerate)$/;
 const RRPD_MENU=['rrpd','request_page','Rincian Rencana Penggunaan Dana (RRPD)'];
 const api=async(f,...a)=>{const slow=SLOW_FN.test(f);let r;for(let i=0;i<4;i++){if(i)await new Promise(ok=>setTimeout(ok,i*700));r=await apiOnce_(f,a,slow?120000:(i<2?12000:15000));if(r.success)break;if(!r.net_&&r.message!=='Gunakan POST untuk semua permintaan.')break;if(slow&&r.abort_)break}if(!r.success)throw new Error(r.message||'Terjadi kesalahan.');return r.data};
 const BL=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -141,6 +141,7 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
  ${sup()&&S.maintenance?'<div class="glass p-4 mb-4" style="border:1px solid var(--red);color:var(--red);font-weight:600"><span class="ms" style="vertical-align:-4px">build</span> Mode Perbaikan sedang AKTIF — semua pengguna selain Super Admin tidak dapat menggunakan sistem sampai Anda menonaktifkannya kembali.</div>':''}
  ${sup()?`<div class="glass p-4 mb-4"><b>Pesan Mode Perbaikan</b><p class="text-xs" style="color:var(--text-2)">Teks ini tampil di layar pengguna lain saat Mode Perbaikan aktif. Kosongkan lalu Simpan untuk kembali ke pesan bawaan.</p><textarea id="mtMsg" class="inp mt-2" rows="2" maxlength="300" aria-label="Pesan Mode Perbaikan">${esc(S.maintPesan)}</textarea><div class="flex justify-end mt-2"><button class="btn2" id="mtSave"><span class="ms">save</span> Simpan Pesan</button></div></div>`:''}
  ${sup()?`<div class="glass p-4 mb-4"><div class="flex flex-wrap justify-between items-center gap-3"><div><b>Register Perjalanan Dinas</b><p class="text-xs" style="color:var(--text-2)">Download seluruh Surat Tugas &amp; SPPD satu tahun (semua bidang) dalam bentuk Excel, lengkap dengan kop, kertas Legal - Landscape.</p></div><div class="flex gap-2 items-center"><select id="regYr" class="inp" style="width:auto" aria-label="Tahun Register">${yrs().map(y=>`<option ${y==S.yr?'selected':''}>${y}</option>`).join('')}</select><button class="btn" id="regDl"><span class="ms">download</span> Download Excel</button></div></div></div>`:''}
+ ${sup()?'<div id="arsipBox" class="mb-4"></div>':''}
  ${sup()?'<div id="waBox" class="mb-4"></div>':''}
  <div class="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-5">${card('description','Total SPPD',d.length,'','s-blue')}${card('mail','Surat Tugas Terbit',st,'','s-green')}${card('directions_walk','Pegawai Bertugas',pg,'orang','s-amber')}${card('schedule','Rata-rata Durasi',avg,'hari','s-rose')}</div>
  <div id="dpaBox" class="mb-5"></div>
@@ -156,6 +157,7 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
   try{const ok=await run(()=>api('setMaintenance',S.t,turnOn),turnOn?'Mode Perbaikan diaktifkan':'Mode Perbaikan dinonaktifkan');if(ok!==undefined){S.maintenance=turnOn;dash()}}finally{done()}};
  if($('#mtSave'))$('#mtSave').onclick=async()=>{const done=busy($('#mtSave'),'Menyimpan…');try{const p=await run(()=>api('setMaintPesan',S.t,$('#mtMsg').value),'Pesan Mode Perbaikan disimpan');if(p!==undefined){S.maintPesan=p;$('#mtMsg').value=p}}finally{done()}};
  if($('#waBox'))waBox();
+ if($('#arsipBox'))arsipBox();
  if($('#regDl'))$('#regDl').onclick=async()=>{const done=busy($('#regDl'),'Membuat Excel…');try{const p=await run(()=>api('exportRegisterXlsx',S.t,$('#regYr').value),'Excel Register siap diunduh');if(p)dlXlsx(p)}finally{done()}};
  charts.forEach(c=>c.destroy());const m=Array(12).fill(0),b=BID.map(x=>d.filter(r=>r.Bidang===x).length);d.forEach(r=>m[+String(r.TglST).slice(5,7)-1]++);
  const css=getComputedStyle(document.documentElement),col=v=>css.getPropertyValue(v).trim();
@@ -313,6 +315,27 @@ async function waBox(){const el=$('#waBox');if(!el)return;let c;try{c=await api(
  <p class="text-xs mt-1" style="color:var(--text-2)">Kode isian otomatis: <b>{bidang}</b> <b>{tanggal}</b> <b>{jumlah}</b> <b>{jumlah_st}</b> <b>{rincian}</b> <b>{admin}</b>. Kosongkan template lalu Simpan untuk kembali ke template bawaan.</p>
  <div class="flex justify-end mt-2"><button class="btn2" id="waSave"><span class="ms">save</span> Simpan Pengaturan WhatsApp</button></div></div>`;
  $('#waSave').onclick=async()=>{const done=busy($('#waSave'),'Menyimpan…');try{const r=await run(()=>api('saveWa',S.t,{aktif:$('#waOn').checked,nomor:$('#waNo').value,template:$('#waTpl').value}),'Pengaturan WhatsApp disimpan');if(r){S.waCfg=r;$('#waNo').value=r.nomor;$('#waTpl').value=r.template}}finally{done()}}}
+// ---------- Arsip Data per Tahun (Super Admin) ----------
+// Data tahun yang sudah lewat dipindahkan ke spreadsheet arsip, supaya spreadsheet utama ringan & aplikasi tetap cepat.
+async function arsipBox(){const el=$('#arsipBox');if(!el)return;let r;try{r=await api('arsipInfo',S.t)}catch(e){return}if(!$('#arsipBox'))return;
+ const ry=$('#regYr');if(ry)r.arsip.forEach(a=>{if(![...ry.options].some(o=>o.value===a.tahun)){const o=document.createElement('option');o.textContent=a.tahun+' (arsip)';o.value=a.tahun;ry.appendChild(o)}}); // Register bisa diunduh juga untuk tahun yang sudah diarsipkan
+ const ar=r.arsip.map(a=>`<div class="glass2 p-3 flex flex-wrap justify-between items-center gap-2"><span><b>Tahun ${esc(a.tahun)}</b><br><small style="color:var(--text-2)">Diarsipkan ${a.tgl?idnF(a.tgl):''}</small></span><a class="btn2" href="${esc(a.url)}" target="_blank" rel="noopener" style="text-decoration:none"><span class="ms">open_in_new</span> Buka Arsip</a></div>`).join('');
+ el.innerHTML=`<div class="glass p-4"><b>Arsip Data per Tahun</b>
+ <p class="text-xs" style="color:var(--text-2)">Pindahkan data tahun yang sudah lewat (Surat Tugas &amp; SPPD, Kwitansi, Laporan, Pengajuan Pencairan, RRPD) ke spreadsheet arsip tersendiri, supaya aplikasi tetap cepat. Tahun berjalan (${esc(r.tahunIni)}) tidak dapat diarsipkan. Saat login, aplikasi hanya memuat data tahun ${esc(r.tahunMin)} s.d. ${esc(r.tahunIni)}.</p>
+ <div class="overflow-x-auto mt-2"><table class="w-full"><thead><tr><th>Tahun</th><th>Surat Tugas</th><th>Baris SPPD</th><th>Aksi</th></tr></thead><tbody>
+ ${r.data.map(d=>`<tr><td class="t"><b>${esc(d.tahun)}</b></td><td class="t">${d.st}</td><td class="t">${d.baris}</td><td class="t">${d.bisa?`<button class="btn2" data-ar="${esc(d.tahun)}"><span class="ms">inventory_2</span> Arsipkan ${esc(d.tahun)}</button>`:'<small style="color:var(--text-2)">Tahun berjalan</small>'}</td></tr>`).join('')||'<tr><td class="t" colspan="4">Belum ada data.</td></tr>'}
+ </tbody></table></div>
+ ${ar?`<div class="mt-3"><b class="text-sm">Spreadsheet Arsip</b><div class="grid gap-2 mt-2 sm:grid-cols-2">${ar}</div></div>`:''}</div>`;
+ el.querySelectorAll('[data-ar]').forEach(b=>b.onclick=()=>arsipDlg(b.dataset.ar))}
+function arsipDlg(y){const m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-md"><h2 class="text-lg font-bold">Arsipkan Data Tahun ${esc(y)}</h2>
+ <p class="text-sm mt-2">Seluruh Surat Tugas &amp; SPPD tahun <b>${esc(y)}</b> beserta Kwitansi, Laporan, Pengajuan Pencairan, dan status RRPD-nya akan <b>dipindahkan</b> ke spreadsheet <b>"Arsip REGISTER SPPD ${esc(y)}"</b>. Data tidak hilang dan tetap bisa dibuka dari Dashboard ini, tapi tidak tampil lagi di menu aplikasi. Register Excel tahun ${esc(y)} tetap bisa di-download.</p>
+ <label for="ap1">Masukkan sandi Anda untuk melanjutkan</label><input id="ap1" type="password" class="inp" autocomplete="current-password"><small id="ap2" style="color:var(--red)"></small>
+ <div class="flex gap-2 justify-end mt-4"><button class="btn2" id="apx">Batal</button><button class="btn" id="apk"><span class="ms">inventory_2</span> Arsipkan Sekarang</button></div></div>`;
+ document.body.appendChild(m);$('#ap1').focus();$('#apx').onclick=()=>m.remove();
+ $('#apk').onclick=async()=>{const pass=$('#ap1').value;if(!pass){$('#ap2').textContent='Sandi wajib diisi.';return}
+  const done=busy($('#apk'),'Memindahkan data…');try{const r=await run(()=>api('arsipkanTahun',S.t,y,pass));
+   if(r){m.remove();S.rrpdCache={};S.ajuSnap=null;S.kasSnap=null;toast('Data tahun '+y+' berhasil diarsipkan ('+r.hasil.DATA_SPPD+' baris SPPD).');await refresh(true)}else if(document.body.contains(m))$('#ap1').value=''}finally{done()}}}
 const waSiap=()=>S.waCfg&&S.waCfg.aktif&&S.waCfg.nomor;
 function waPesan(p,rin){const rincian=rin.map((o,i)=>`${i+1}. No. ST: ${o.noST}\n   Tanggal: ${idnF(o.tglST)} · Tujuan: ${o.tujuan}\n   Maksud: ${o.maksud||'-'}\n   Petugas: ${o.jumlahPetugas??o.pegawai.length} orang · ${rpf(o.total)}`).join('\n\n');
  const isi={bidang:p.bidang||S.bidang,tanggal:idnF(p.tglAjukan),jumlah:rpf(p.jumlah),jumlah_st:String(p.noSTList.length),rincian,admin:S.nama,status:p.status};
