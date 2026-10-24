@@ -160,7 +160,12 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
  ...($('#c2')?[new Chart($('#c2'),{type:'doughnut',data:{labels:BID,datasets:[{data:b,backgroundColor:[col('--blue'),col('--teal'),col('--amber'),col('--red')]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}})]:[])]}
 
 function filt(){const q=S.q.toLowerCase();return S.d.filter(r=>(!q||[r.Nama,r.NIP,r.NoST,r.NoSPPD,r.Tujuan].join(' ').toLowerCase().includes(q))&&(!S.fb||r.Bidang===S.fb)&&(!S.fm||String(r.TglST).slice(0,7)===S.fm)).sort((a,b)=>String(b.TglST).localeCompare(a.TglST))}
-function groups(){const m=new Map();filt().forEach(r=>{if(!m.has(r.NoST))m.set(r.NoST,[]);m.get(r.NoST).push(r)});return[...m.keys()]}
+const waktuInput=r=>{const m=String(r.Dibuat||'').match(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\s*$/);return m?m[1]:''}; // jam & tanggal penginputan (kolom Dibuat)
+// Rekap: Surat Tugas yang PALING BARU DIINPUT tampil paling atas - diurutkan menurut jam & tanggal penginputan (bukan Tanggal Surat Tugas).
+// Data lama tanpa catatan jam input ditaruh di bawahnya, urut dari baris sheet paling bawah (paling baru) ke atas.
+function groups(){const m=new Map();filt().forEach(r=>{if(!m.has(r.NoST))m.set(r.NoST,[]);m.get(r.NoST).push(r)});
+ const w={},u={};S.d.forEach((r,i)=>{const t=waktuInput(r);if(t&&(!w[r.NoST]||t<w[r.NoST]))w[r.NoST]=t;if(u[r.NoST]==null||i<u[r.NoST])u[r.NoST]=i});
+ return[...m.keys()].sort((a,b)=>(w[b]||'').localeCompare(w[a]||'')||u[b]-u[a])}
 function rekap(){const g=groups(),n=10,pgs=Math.max(1,Math.ceil(g.length/n));S.page=Math.min(S.page,pgs);const v=g.slice((S.page-1)*n,S.page*n);
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3 flex items-center gap-2 flex-wrap">Rekapitulasi Surat Tugas & SPPD<button class="btn2" id="xx" style="font-size:.8rem"><span class="ms">download</span> Export Excel</button></h1><div class="glass p-4 mb-4 grid gap-3 md:grid-cols-3">
  <div class="md:col-span-3"><input id="q" class="inp" placeholder="Cari nama pegawai, NIP, nomor surat/SPPD, atau tujuan…" value="${esc(S.q)}" aria-label="Cari"></div>
