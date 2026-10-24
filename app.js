@@ -140,6 +140,7 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
  <div class="flex gap-2" style="position:relative;z-index:1"><select id="yr" class="inp" style="width:auto" aria-label="Tahun">${yrs().map(y=>`<option ${y==S.yr?'selected':''}>${y}</option>`).join('')}</select>${adm()?'<button class="btn" id="nb">+ Buat Surat Tugas</button>':''}${sup()?`<button class="${S.maintenance?'btn-d':'btn2'}" id="mtBtn"><span class="ms">build</span> ${S.maintenance?'Nonaktifkan Mode Perbaikan':'Aktifkan Mode Perbaikan'}</button>`:''}</div></div>
  ${sup()&&S.maintenance?'<div class="glass p-4 mb-4" style="border:1px solid var(--red);color:var(--red);font-weight:600"><span class="ms" style="vertical-align:-4px">build</span> Mode Perbaikan sedang AKTIF — semua pengguna selain Super Admin tidak dapat menggunakan sistem sampai Anda menonaktifkannya kembali.</div>':''}
  ${sup()?`<div class="glass p-4 mb-4"><b>Pesan Mode Perbaikan</b><p class="text-xs" style="color:var(--text-2)">Teks ini tampil di layar pengguna lain saat Mode Perbaikan aktif. Kosongkan lalu Simpan untuk kembali ke pesan bawaan.</p><textarea id="mtMsg" class="inp mt-2" rows="2" maxlength="300" aria-label="Pesan Mode Perbaikan">${esc(S.maintPesan)}</textarea><div class="flex justify-end mt-2"><button class="btn2" id="mtSave"><span class="ms">save</span> Simpan Pesan</button></div></div>`:''}
+ ${sup()?'<div id="waBox" class="mb-4"></div>':''}
  <div class="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-5">${card('description','Total SPPD',d.length,'','s-blue')}${card('mail','Surat Tugas Terbit',st,'','s-green')}${card('directions_walk','Pegawai Bertugas',pg,'orang','s-amber')}${card('schedule','Rata-rata Durasi',avg,'hari','s-rose')}</div>
  <div id="dpaBox" class="mb-5"></div>
  <div class="grid gap-4 lg:grid-cols-3 mb-5"><div class="glass p-5 min-w-0 ${['Admin','Kasubag Keuangan','KABID','KASI'].includes(S.role)?'lg:col-span-3':'lg:col-span-2'}"><b>Tren Penerbitan SPPD Bulanan</b><div style="position:relative;height:240px;max-width:100%;margin-top:.5rem"><canvas id="c1"></canvas></div></div>
@@ -153,6 +154,7 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
   const done=busy($('#mtBtn'),'Memproses…');
   try{const ok=await run(()=>api('setMaintenance',S.t,turnOn),turnOn?'Mode Perbaikan diaktifkan':'Mode Perbaikan dinonaktifkan');if(ok!==undefined){S.maintenance=turnOn;dash()}}finally{done()}};
  if($('#mtSave'))$('#mtSave').onclick=async()=>{const done=busy($('#mtSave'),'Menyimpan…');try{const p=await run(()=>api('setMaintPesan',S.t,$('#mtMsg').value),'Pesan Mode Perbaikan disimpan');if(p!==undefined){S.maintPesan=p;$('#mtMsg').value=p}}finally{done()}};
+ if($('#waBox'))waBox();
  charts.forEach(c=>c.destroy());const m=Array(12).fill(0),b=BID.map(x=>d.filter(r=>r.Bidang===x).length);d.forEach(r=>m[+String(r.TglST).slice(5,7)-1]++);
  const css=getComputedStyle(document.documentElement),col=v=>css.getPropertyValue(v).trim();
  Chart.defaults.color=col('--text-2');Chart.defaults.borderColor=col('--line');
@@ -298,9 +300,34 @@ function pengajuanTolakDlg(id){const m=document.createElement('div');m.className
  document.body.appendChild(m);$('#tcx').onclick=()=>m.remove();
  $('#tck').onclick=async()=>{const c=$('#tc1').value.trim();if(!c)return warnToast('Catatan alasan penolakan wajib diisi.');const done=busy($('#tck'),'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,id,false,c),'Pengajuan ditolak');if(ok){m.remove();S.ajuanList=null;pencairanV()}}finally{done()}}}
 async function pencairanV(){S.role==='Admin'?await pencairanAdminV():await pencairanKasubagV()}
+// ---------- Ajukan Pencairan lewat WhatsApp ----------
+// Super Admin mengatur (Dashboard): aktif/nonaktif, nomor WhatsApp Kasubag Keuangan, template pesan.
+// Admin Bidang: tombol WhatsApp di Riwayat Pengajuan (status Diajukan) + tawaran kirim otomatis setelah Ajukan Pencairan.
+async function waBox(){const el=$('#waBox');if(!el)return;let c;try{c=await api('waInfo',S.t)}catch(e){return}if(!$('#waBox'))return;S.waCfg=c;
+ el.innerHTML=`<div class="glass p-4"><div class="flex flex-wrap justify-between items-center gap-2"><b>Ajukan Pencairan lewat WhatsApp</b><label for="waOn" style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--text)"><input type="checkbox" id="waOn" ${c.aktif?'checked':''}> Aktifkan</label></div>
+ <p class="text-xs" style="color:var(--text-2)">Bila aktif, Admin Bidang dapat mengirim rincian Pengajuan Pencairan langsung ke WhatsApp Kasubag Keuangan dari menu Pengajuan Pencairan.</p>
+ <label for="waNo">Nomor WhatsApp Kasubag Keuangan</label><input id="waNo" class="inp" inputmode="tel" placeholder="mis. 081234567890" value="${esc(c.nomor)}">
+ <label for="waTpl">Template Pesan</label><textarea id="waTpl" class="inp" rows="12">${esc(c.template)}</textarea>
+ <p class="text-xs mt-1" style="color:var(--text-2)">Kode isian otomatis: <b>{bidang}</b> <b>{tanggal}</b> <b>{jumlah}</b> <b>{jumlah_st}</b> <b>{rincian}</b> <b>{admin}</b>. Kosongkan template lalu Simpan untuk kembali ke template bawaan.</p>
+ <div class="flex justify-end mt-2"><button class="btn2" id="waSave"><span class="ms">save</span> Simpan Pengaturan WhatsApp</button></div></div>`;
+ $('#waSave').onclick=async()=>{const done=busy($('#waSave'),'Menyimpan…');try{const r=await run(()=>api('saveWa',S.t,{aktif:$('#waOn').checked,nomor:$('#waNo').value,template:$('#waTpl').value}),'Pengaturan WhatsApp disimpan');if(r){S.waCfg=r;$('#waNo').value=r.nomor;$('#waTpl').value=r.template}}finally{done()}}}
+const waSiap=()=>S.waCfg&&S.waCfg.aktif&&S.waCfg.nomor;
+function waPesan(p,rin){const rincian=rin.map((o,i)=>`${i+1}. No. ST: ${o.noST}\n   Tanggal: ${idnF(o.tglST)} · Tujuan: ${o.tujuan}\n   Maksud: ${o.maksud||'-'}\n   Petugas: ${o.jumlahPetugas??o.pegawai.length} orang · ${rpf(o.total)}`).join('\n\n');
+ const isi={bidang:p.bidang||S.bidang,tanggal:idnF(p.tglAjukan),jumlah:rpf(p.jumlah),jumlah_st:String(p.noSTList.length),rincian,admin:S.nama,status:p.status};
+ return S.waCfg.template.replace(/\{(\w+)\}/g,(m,k)=>k in isi?isi[k]:m)}
+async function waKirimDlg(id){if(!waSiap())return toast('Fitur WhatsApp belum diaktifkan oleh Super Admin.',1);
+ const p=(S.ajuanList||[]).find(x=>x.id===id);if(!p)return;const rin=await run(()=>api('pengajuanRincian',S.t,id));if(!rin)return;
+ const link=t=>'https://wa.me/'+S.waCfg.nomor+'?text='+encodeURIComponent(t),m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-2xl" style="max-height:92vh;overflow:auto"><h2 class="text-lg font-bold">Kirim Pengajuan lewat WhatsApp</h2><p class="text-xs mt-1" style="color:var(--text-2)">Ke Kasubag Keuangan (+${esc(S.waCfg.nomor)}). Periksa pesan di bawah, boleh diubah sebelum dikirim.</p>
+ <textarea id="waMsg" class="inp mt-3" rows="14" aria-label="Isi pesan WhatsApp">${esc(waPesan(p,rin))}</textarea>
+ <div class="flex gap-2 justify-end mt-4 flex-wrap"><button class="btn2" id="waX">Tutup</button><a class="btn" id="waGo" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;background:#25D366"><span class="ms">chat</span> Buka WhatsApp &amp; Kirim</a></div></div>`;
+ document.body.appendChild(m);const go=$('#waGo'),ta=$('#waMsg');go.href=link(ta.value);ta.oninput=()=>go.href=link(ta.value);
+ $('#waX').onclick=()=>m.remove();go.onclick=()=>setTimeout(()=>m.remove(),300)}
 async function pencairanAdminV(){
+ const waP=api('waInfo',S.t).catch(()=>null); // pengaturan WhatsApp diambil bersamaan
  let elig=S.ajuanElig;if(!elig){elig=await run(()=>api('pencairanEligible',S.t));if(!elig)return;S.ajuanElig=elig}
  let riw=S.ajuanList;if(!riw){riw=await run(()=>api('pengajuanList',S.t));if(!riw)return;S.ajuanList=riw}
+ S.waCfg=await waP||S.waCfg;
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Pengajuan Pencairan Perjalanan Dinas</h1>
  <div class="glass p-4 mb-4"><b>Ajukan Pencairan Baru</b><p class="text-xs mb-3" style="color:var(--text-2)">Pilih Surat Tugas yang Kwitansinya sudah diatur, untuk diajukan pencairannya ke Kasubag Keuangan.</p>
  <div class="overflow-x-auto"><table class="w-full" style="min-width:920px"><thead><tr><th><input type="checkbox" id="selAll" aria-label="Pilih semua"></th><th>Tgl ST</th><th>No. Surat Tugas</th><th>Tujuan</th><th>Maksud Perjalanan Dinas</th><th>Jml Petugas</th><th>Jenis</th><th>Jumlah</th></tr></thead><tbody>
@@ -308,15 +335,16 @@ async function pencairanAdminV(){
  </tbody></table></div>
  <div class="flex flex-wrap justify-between items-center gap-3 mt-3"><span>Total dipilih: <b id="ajuanTot">Rp 0</b></span><button class="btn" id="ajuanBtn" disabled><span class="ms">send</span> Ajukan Pencairan</button></div></div>
  <div class="glass p-2 overflow-x-auto"><div class="p-3"><b>Riwayat Pengajuan Bidang Saya</b></div><table class="w-full" style="min-width:760px"><thead><tr><th>Tgl Ajukan</th><th>Surat Tugas</th><th>Jumlah</th><th>Status</th><th>Tanggal &amp; Jam Approve</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody>
- ${riw.map(x=>`<tr><td class="t"><b>${idn(x.tglAjukan)}</b></td><td class="t">${x.noSTList.length} ST</td><td class="t">${rpf(x.jumlah)}</td><td class="t">${ajuanBadge(x.status)}${x.status!=='Diajukan'&&x.diprosesOleh?`<br><small style="color:var(--text-2)">${x.status==='Ditolak'?'Ditolak':'Disetujui'} oleh ${esc(x.diprosesOleh)}</small>`:''}</td><td class="t">${x.tglProses?`<b>${idn(x.tglProses)}</b>${x.jamProses?`<br><small>Jam ${esc(x.jamProses)} Wita</small>`:''}`:'<small style="color:var(--text-2)">-</small>'}</td><td class="t">${esc(x.catatan||'-')}</td><td class="t"><button class="btn2" data-r="${esc(x.id)}">Lihat Rincian</button></td></tr>`).join('')||'<tr><td class="t" colspan="7">Belum ada pengajuan.</td></tr>'}
+ ${riw.map(x=>`<tr><td class="t"><b>${idn(x.tglAjukan)}</b></td><td class="t">${x.noSTList.length} ST</td><td class="t">${rpf(x.jumlah)}</td><td class="t">${ajuanBadge(x.status)}${x.status!=='Diajukan'&&x.diprosesOleh?`<br><small style="color:var(--text-2)">${x.status==='Ditolak'?'Ditolak':'Disetujui'} oleh ${esc(x.diprosesOleh)}</small>`:''}</td><td class="t">${x.tglProses?`<b>${idn(x.tglProses)}</b>${x.jamProses?`<br><small>Jam ${esc(x.jamProses)} Wita</small>`:''}`:'<small style="color:var(--text-2)">-</small>'}</td><td class="t">${esc(x.catatan||'-')}</td><td class="t"><div class="flex gap-1 flex-wrap"><button class="btn2" data-r="${esc(x.id)}">Lihat Rincian</button>${waSiap()&&x.status==='Diajukan'?`<button class="btn2" data-wa="${esc(x.id)}" title="Kirim ke WhatsApp Kasubag Keuangan" style="color:#128C7E"><span class="ms">chat</span> WhatsApp</button>`:''}</div></td></tr>`).join('')||'<tr><td class="t" colspan="7">Belum ada pengajuan.</td></tr>'}
  </tbody></table></div>`;
  const recalc=()=>{const ch=[...document.querySelectorAll('.ajuanChk:checked')],tot=ch.reduce((a,c)=>a+(+c.dataset.t||0),0);$('#ajuanTot').textContent=rpf(tot);$('#ajuanBtn').disabled=!ch.length};
  document.querySelectorAll('.ajuanChk').forEach(c=>c.onchange=recalc);
  if($('#selAll'))$('#selAll').onchange=e=>{document.querySelectorAll('.ajuanChk').forEach(c=>c.checked=e.target.checked);recalc()};
  $('#ajuanBtn').onclick=async()=>{const keys=[...document.querySelectorAll('.ajuanChk:checked')].map(c=>c.value);if(!keys.length)return;
   if(!await confirmDlg('Ajukan pencairan untuk '+keys.length+' Surat Tugas senilai '+$('#ajuanTot').textContent+' ke Kasubag Keuangan?','Konfirmasi Pengajuan'))return;
-  const done=busy($('#ajuanBtn'),'Mengajukan…');try{const r=await run(()=>api('pengajuanAjukan',S.t,keys),'Pengajuan Pencairan terkirim');if(r){S.ajuanElig=null;S.ajuanList=null;pencairanV()}}finally{done()}};
- document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{const r=await run(()=>api('pengajuanRincian',S.t,b.dataset.r));if(r)pengajuanRincianDlg('Rincian Pengajuan Pencairan',r)})}
+  const done=busy($('#ajuanBtn'),'Mengajukan…');try{const r=await run(()=>api('pengajuanAjukan',S.t,keys),'Pengajuan Pencairan terkirim');if(r){S.ajuanElig=null;S.ajuanList=null;await pencairanV();if(waSiap())waKirimDlg(r.id)}}finally{done()}};
+ document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{const r=await run(()=>api('pengajuanRincian',S.t,b.dataset.r));if(r)pengajuanRincianDlg('Rincian Pengajuan Pencairan',r)});
+ document.querySelectorAll('[data-wa]').forEach(b=>b.onclick=async()=>{const done=busy(b,'');try{await waKirimDlg(b.dataset.wa)}finally{done()}})}
 async function pencairanKasubagV(){
  let riw=S.ajuanList;if(!riw){riw=await run(()=>api('pengajuanList',S.t));if(!riw)return;S.ajuanList=riw}
  let dpa=S.dpaCache[S.yr];if(!dpa){try{dpa=await api('dpaGet',S.t,S.yr);S.dpaCache[S.yr]=dpa}catch(e){dpa=[]}}
