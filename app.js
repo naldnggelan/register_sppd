@@ -163,9 +163,9 @@ function filt(){const q=S.q.toLowerCase();return S.d.filter(r=>(!q||[r.Nama,r.NI
 const waktuInput=r=>{const m=String(r.Dibuat||'').match(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\s*$/);return m?m[1]:''}; // jam & tanggal penginputan (kolom Dibuat)
 // Rekap: Surat Tugas yang PALING BARU DIINPUT tampil paling atas - diurutkan menurut jam & tanggal penginputan (bukan Tanggal Surat Tugas).
 // Data lama tanpa catatan jam input ditaruh di bawahnya, urut dari baris sheet paling bawah (paling baru) ke atas.
-function groups(){const m=new Map();filt().forEach(r=>{if(!m.has(r.NoST))m.set(r.NoST,[]);m.get(r.NoST).push(r)});
- const w={},u={};S.d.forEach((r,i)=>{const t=waktuInput(r);if(t&&(!w[r.NoST]||t<w[r.NoST]))w[r.NoST]=t;if(u[r.NoST]==null||i<u[r.NoST])u[r.NoST]=i});
- return[...m.keys()].sort((a,b)=>(w[b]||'').localeCompare(w[a]||'')||u[b]-u[a])}
+function urutInput(keys){const w={},u={};S.d.forEach((r,i)=>{const t=waktuInput(r);if(t&&(!w[r.NoST]||t<w[r.NoST]))w[r.NoST]=t;if(u[r.NoST]==null||i<u[r.NoST])u[r.NoST]=i});
+ return keys.sort((a,b)=>(w[b]||'').localeCompare(w[a]||'')||u[b]-u[a])} // daftar No. ST diurutkan: paling baru diinput di atas (dipakai Rekap & Cetak Kwitansi)
+function groups(){const m=new Map();filt().forEach(r=>{if(!m.has(r.NoST))m.set(r.NoST,[]);m.get(r.NoST).push(r)});return urutInput([...m.keys()])}
 function rekap(){const g=groups(),n=10,pgs=Math.max(1,Math.ceil(g.length/n));S.page=Math.min(S.page,pgs);const v=g.slice((S.page-1)*n,S.page*n);
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3 flex items-center gap-2 flex-wrap">Rekapitulasi Surat Tugas & SPPD<button class="btn2" id="xx" style="font-size:.8rem"><span class="ms">download</span> Export Excel</button></h1><div class="glass p-4 mb-4 grid gap-3 md:grid-cols-3">
  <div class="md:col-span-3"><input id="q" class="inp" placeholder="Cari nama pegawai, NIP, nomor surat/SPPD, atau tujuan…" value="${esc(S.q)}" aria-label="Cari"></div>
@@ -348,7 +348,7 @@ function lapDlg(k){const rs=S.d.filter(r=>r.NoST===k),q=S.lap.find(x=>x.NoST===k
  <div class="flex gap-2 justify-between flex-wrap mt-4"><button class="btn2" id="lg"><span class="ms">auto_fix_high</span> Buat otomatis ulang</button><div class="flex gap-2"><button class="btn2" id="lx">Batal</button><button class="btn" id="ls">Generate Laporan</button></div></div></div>`;document.body.appendChild(m);
  $('#lg').onclick=()=>{const g=lapGen(rs);$('#l1').value=g.kegiatan;$('#l2').value=g.hasil;$('#l3').value=g.kesimpulan};$('#lx').onclick=()=>m.remove();
  $('#ls').onclick=async()=>{const done=busy($('#ls'),'Membuat laporan…');try{const ok=await run(()=>api('saveLap',S.t,{noST:k,kegiatan:$('#l1').value,hasil:$('#l2').value,kesimpulan:$('#l3').value,tgl:$('#l4').value}));if(!ok)return;await load();const p=await run(()=>api('lapPreview',S.t,k));if(p){m.remove();prev(p,k,'lapPdf')}}finally{done()}}}
-function kwiV(){let g=[...new Set(S.d.map(r=>r.NoST))].map(k=>S.d.filter(r=>r.NoST===k)).sort((a,b)=>String(b[0].TglST).localeCompare(a[0].TglST));
+function kwiV(){let g=urutInput([...new Set(S.d.map(r=>r.NoST))]).map(k=>S.d.filter(r=>r.NoST===k)); // paling baru diinput di atas (sama seperti Rekap)
  S.kwm=S.kwm||new Date().toISOString().slice(0,7);S.fbk=S.fbk||'';
  if(S.fbk)g=g.filter(a=>a[0].Bidang===S.fbk);
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Cetak Kwitansi</h1>
