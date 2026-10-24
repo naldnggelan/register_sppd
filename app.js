@@ -213,7 +213,7 @@ function rrpdRender(r,y){
  const gen=S.role==='Admin'||sup(); // Admin & Super Admin: Generate (1x) + lihat; Kasubag Keuangan, KABID, KASI, SEKRETARIS: hanya lihat (ikon mata)
  const key=(b,s)=>b+'|'+y+'|'+s.nama,pick=v=>{const [bi,si]=v.split('|').map(Number);return{b:r[bi],s:r[bi].subs[si]}};
  const mata=(bi,si,s)=>`<button class="btn2" data-rv="${bi}|${si}" aria-label="Lihat RRPD" title="${s.gen?'Lihat RRPD':'Belum di-generate'}" ${s.gen?'':'disabled'}><span class="ms">visibility</span></button>`;
- const aksi=(bi,si,s)=>s.gen?`<div class="flex gap-2 items-center flex-wrap">${mata(bi,si,s)}<span><span class="bd" style="background:rgba(16,185,129,.15);color:var(--accent-text)">Sudah di-generate</span><br><small style="color:var(--text-2)">${esc(s.gen.tgl)} · ${esc(s.gen.oleh)}</small></span></div>`
+ const aksi=(bi,si,s)=>s.gen?`<div class="flex gap-2 items-center flex-wrap">${mata(bi,si,s)}${sup()?`<button class="btn2" data-ru="${bi}|${si}" title="Generate Ulang (khusus Super Admin)"><span class="ms">refresh</span> Generate Ulang</button>`:''}<span><span class="bd" style="background:rgba(16,185,129,.15);color:var(--accent-text)">Sudah di-generate</span><br><small style="color:var(--text-2)">${esc(s.gen.tgl)} · ${esc(s.gen.oleh)}</small></span></div>`
   :`<div class="flex gap-2 items-center flex-wrap">${gen?`<button class="btn" data-rg="${bi}|${si}"><span class="ms">auto_awesome</span> Generate</button>`:''}${mata(bi,si,s)}${gen?'':'<small style="color:var(--text-2)">Belum di-generate Admin</small>'}</div>`;
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-1">Rincian Rencana Penggunaan Dana (RRPD)</h1>
  <p class="text-xs mb-3" style="color:var(--text-2)">Satu RRPD per Sub Kegiatan DPA. Baris pengeluaran diambil dari Pengajuan Pencairan yang sudah <b>disetujui Kasubag Keuangan</b>. ${gen?'Generate hanya bisa 1 kali per Sub Kegiatan; setelah itu lihat lewat ikon mata.':'Klik ikon mata untuk melihat RRPD yang sudah di-generate Admin bidang.'}</p>
@@ -227,7 +227,10 @@ function rrpdRender(r,y){
  document.querySelectorAll('[data-rv]').forEach(bt=>bt.onclick=async()=>{const {b,s}=pick(bt.dataset.rv),k=key(b.bidang,s),done=busy(bt,'');try{const v=await run(()=>api('rrpdPreview',S.t,k));if(v)prev(v,k,'rrpdPdf')}finally{done()}});
  document.querySelectorAll('[data-rg]').forEach(bt=>bt.onclick=async()=>{const {b,s}=pick(bt.dataset.rg),k=key(b.bidang,s);
   if(!await confirmDlg('Generate RRPD '+b.bidang+' tahun '+y+'\nSub Kegiatan: '+s.nama+'\n\nGenerate hanya bisa dilakukan 1 kali. Setelah itu RRPD dilihat lewat ikon mata.','Generate RRPD'))return;
-  const done=busy(bt,'Menyusun RRPD…');try{const g=await run(()=>api('rrpdGenerate',S.t,k),'RRPD berhasil di-generate');if(!g)return;s.gen=g;rrpdRender(r,y);const v=await run(()=>api('rrpdPreview',S.t,k));if(v)prev(v,k,'rrpdPdf');rrpdV()}finally{done()}})}
+  const done=busy(bt,'Menyusun RRPD…');try{const g=await run(()=>api('rrpdGenerate',S.t,k),'RRPD berhasil di-generate');if(!g)return;s.gen=g;rrpdRender(r,y);const v=await run(()=>api('rrpdPreview',S.t,k));if(v)prev(v,k,'rrpdPdf');rrpdV()}finally{done()}});
+ document.querySelectorAll('[data-ru]').forEach(bt=>bt.onclick=async()=>{const {b,s}=pick(bt.dataset.ru),k=key(b.bidang,s); // Generate Ulang - khusus Super Admin
+  if(!await confirmDlg('Generate ulang RRPD '+b.bidang+' tahun '+y+'\nSub Kegiatan: '+s.nama+'\n\nRRPD akan disusun ulang dengan fungsi terbaru dan catatan generate sebelumnya ('+s.gen.tgl+' oleh '+s.gen.oleh+') diganti.','Generate Ulang RRPD'))return;
+  const done=busy(bt,'Menyusun ulang…');try{const g=await run(()=>api('rrpdGenerate',S.t,k,true),'RRPD berhasil di-generate ulang');if(!g)return;s.gen=g;rrpdRender(r,y);const v=await run(()=>api('rrpdPreview',S.t,k));if(v)prev(v,k,'rrpdPdf');rrpdV()}finally{done()}})}
 async function bkuV(){let bl=S.bkuCache;if(!bl){bl=await run(()=>api('bkuList',S.t));if(!bl)return;S.bkuCache=bl}
  S.bb=S.bb&&bl.includes(S.bb)?S.bb:bl[0];S.by=S.by||S.yr;
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Buku Kas Umum (BKU) Perjalanan Dinas</h1>
