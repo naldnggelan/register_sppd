@@ -202,7 +202,14 @@ async function dpaBox(){const el=$('#dpaBox');if(!el)return;let r=S.dpaCache[S.y
  <div class="text-sm mt-1">Sisa <b style="color:${x.Sisa<0?'var(--red)':'inherit'}">${rpf(x.Sisa)}</b></div></button>`}).join('')}</div></div>`;
  el.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>dpaDetail(r.find(z=>z.Bidang===b.dataset.d),S.yr));$('#dk').onclick=()=>{S.dy=S.yr;S.view='dpa';shell()}}
 // ---------- RRPD (Rincian Rencana Penggunaan Dana) - satu RRPD per Sub Kegiatan DPA, baris = Pengajuan Pencairan yang sudah disetujui ----------
-async function rrpdV(){const y=S.ry=S.ry||S.yr;const r=await run(()=>api('rrpdList',S.t,y));if(!r)return;
+// KECEPATAN: buka menu RRPD langsung menampilkan data terakhir yang tersimpan di browser (tanpa menunggu server),
+// lalu diperbarui diam-diam di belakang layar; kunjungan pertama menampilkan tanda "Memuat…" seketika.
+async function rrpdV(){const y=S.ry=S.ry||S.yr;S.rrpdCache=S.rrpdCache||{};const c=S.rrpdCache[y];
+ if(c)rrpdRender(c,y);else $('#main').innerHTML='<h1 class="text-2xl font-bold mb-3">Rincian Rencana Penggunaan Dana (RRPD)</h1><div class="glass p-5" style="color:var(--text-2)"><span class="spin"></span> Memuat RRPD…</div>';
+ const r=c?await api('rrpdList',S.t,y).catch(()=>null):await run(()=>api('rrpdList',S.t,y));if(!r)return;
+ S.rrpdCache[y]=r;const ae=document.activeElement;
+ if(S.view==='rrpd'&&S.ry===y&&!document.querySelector('.modal')&&!(ae&&/^rj\d/.test(ae.id||''))&&JSON.stringify(r)!==JSON.stringify(c))rrpdRender(r,y)}
+function rrpdRender(r,y){
  const gen=S.role==='Admin'||sup(); // Admin & Super Admin: Generate (1x) + lihat; Kasubag Keuangan, KABID, KASI, SEKRETARIS: hanya lihat (ikon mata)
  const key=(b,s)=>b+'|'+y+'|'+s.nama,pick=v=>{const [bi,si]=v.split('|').map(Number);return{b:r[bi],s:r[bi].subs[si]}};
  const mata=(bi,si,s)=>`<button class="btn2" data-rv="${bi}|${si}" aria-label="Lihat RRPD" title="${s.gen?'Lihat RRPD':'Belum di-generate'}" ${s.gen?'':'disabled'}><span class="ms">visibility</span></button>`;
@@ -220,7 +227,7 @@ async function rrpdV(){const y=S.ry=S.ry||S.yr;const r=await run(()=>api('rrpdLi
  document.querySelectorAll('[data-rv]').forEach(bt=>bt.onclick=async()=>{const {b,s}=pick(bt.dataset.rv),k=key(b.bidang,s),done=busy(bt,'');try{const v=await run(()=>api('rrpdPreview',S.t,k));if(v)prev(v,k,'rrpdPdf')}finally{done()}});
  document.querySelectorAll('[data-rg]').forEach(bt=>bt.onclick=async()=>{const {b,s}=pick(bt.dataset.rg),k=key(b.bidang,s);
   if(!await confirmDlg('Generate RRPD '+b.bidang+' tahun '+y+'\nSub Kegiatan: '+s.nama+'\n\nGenerate hanya bisa dilakukan 1 kali. Setelah itu RRPD dilihat lewat ikon mata.','Generate RRPD'))return;
-  const done=busy(bt,'Menyusun RRPD…');try{const g=await run(()=>api('rrpdGenerate',S.t,k),'RRPD berhasil di-generate');if(!g)return;const v=await run(()=>api('rrpdPreview',S.t,k));rrpdV();if(v)prev(v,k,'rrpdPdf')}finally{done()}})}
+  const done=busy(bt,'Menyusun RRPD…');try{const g=await run(()=>api('rrpdGenerate',S.t,k),'RRPD berhasil di-generate');if(!g)return;s.gen=g;rrpdRender(r,y);const v=await run(()=>api('rrpdPreview',S.t,k));if(v)prev(v,k,'rrpdPdf');rrpdV()}finally{done()}})}
 async function bkuV(){let bl=S.bkuCache;if(!bl){bl=await run(()=>api('bkuList',S.t));if(!bl)return;S.bkuCache=bl}
  S.bb=S.bb&&bl.includes(S.bb)?S.bb:bl[0];S.by=S.by||S.yr;
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Buku Kas Umum (BKU) Perjalanan Dinas</h1>
