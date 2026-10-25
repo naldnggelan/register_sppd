@@ -271,6 +271,13 @@ function stWaDlg(p,noST){const bin=atob(p.b64),u8=new Uint8Array(bin.length);for
  document.body.appendChild(m);$('#waX').onclick=()=>m.remove();
  if($('#waS'))$('#waS').onclick=async()=>{try{await navigator.share({files:[file],title:p.name,text:$('#waT').value});m.remove()}catch(e){if(e&&e.name!=='AbortError')toast('Gagal membagikan: '+(e.message||e),1)}};
  $('#waL').onclick=()=>{if(!bisaFile)dl('data:application/pdf;base64,'+p.b64,p.name);window.open('https://wa.me/?text='+encodeURIComponent($('#waT').value),'_blank','noopener');m.remove()}}
+function muatGbr(u){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error('gambar tidak bisa dibaca'));i.src=u})}
+async function gabungTtdCap(ttd,cap,uk){ // CAP di kiri, menimpa sebagian tanda tangan (seperti dicap manual); hasil PNG transparan
+ const a=await muatGbr(ttd),b=await muatGbr(cap),k=Math.min(1,600/a.naturalWidth),sw=a.naturalWidth*k,sh=a.naturalHeight*k;
+ const ch=Math.max(sh*uk,40),cw=b.naturalWidth*(ch/b.naturalHeight),sx=cw*0.45,W=Math.max(cw,sx+sw),H=Math.max(ch,sh);
+ const cv=document.createElement('canvas');cv.width=Math.round(W);cv.height=Math.round(H);const g=cv.getContext('2d');
+ g.globalAlpha=.88;g.drawImage(b,0,(H-ch)/2,cw,ch);g.globalAlpha=1;g.drawImage(a,sx,(H-sh)/2,sw,sh);
+ return{data:cv.toDataURL('image/png'),skala:W/sw}}
 const rpf=n=>'Rp '+Math.round(n).toLocaleString('en-US');
 function dpaDet(b,y){return S.kwi.map(k=>{const rs=S.d.filter(r=>r.NoST===k.NoST);return rs.length&&rs[0].Bidang===b&&String(rs[0].TglST).slice(0,4)===String(y)?{k,rs,t:rs[0]}:null}).filter(Boolean).sort((a,b)=>String(b.t.TglST).localeCompare(String(a.t.TglST)))}
 function dpaDetail(x,y){const L=dpaDet(x.Bidang,y),m=document.createElement('div');m.className='modal';
@@ -618,17 +625,30 @@ async function cfgV(){let c=S.cfgCache;if(!c){c=await run(()=>api('getCfg',S.t))
  <div><label for="KERTAS">Ukuran kertas (Surat Tugas & SPPD)</label><select id="KERTAS" class="inp">${[['Legal','Legal 8.5 × 14 in (216 × 356 mm)'],['Letter','Letter 8.5 × 11 in (216 × 279 mm)']].map(([v,t])=>`<option value="${v}" ${v==c.KERTAS?'selected':''}>${t}</option>`).join('')}</select></div>
  <div><label for="FONT">Jenis huruf</label><select id="FONT" class="inp">${['Arial Narrow','Archivo Narrow','Arial'].map(f=>`<option ${f==c.FONT?'selected':''}>${f}</option>`).join('')}</select></div></div>
  ${blok('ST','Surat Tugas')}${blok('SP','SPPD')}
- <div class="glass p-5 mb-4"><b>Tanda Tangan Pimpinan (PNG)</b><p class="text-xs" style="color:var(--text-2)">Gunakan PNG berlatar transparan, maksimal ± 700 KB. Tampil di Surat Tugas dan SPPD di atas nama penandatangan.</p>
+ <div class="glass p-5 mb-4"><b>Tanda Tangan Pimpinan &amp; CAP (PNG) — khusus Cetak Surat Tugas</b><p class="text-xs" style="color:var(--text-2)">Gunakan PNG berlatar transparan, maksimal ± 700 KB. Tanda tangan &amp; CAP <b>hanya tampil di Cetak Surat Tugas</b>. SPPD, Kwitansi, Laporan, BKU dan RRPD tetap kosong (ditandatangani &amp; dicap manual).</p>
  <div class="flex flex-wrap gap-4 items-center mt-2"><div id="tp" style="width:180px;height:90px;background:#fff;border-radius:.5rem;display:flex;align-items:center;justify-content:center;color:#777;font-size:12px">${c.TTD?`<img src="${c.TTD}" alt="Tanda tangan" style="max-width:100%;max-height:100%">`:'Belum ada TTD'}</div>
  <div class="flex-1" style="min-width:220px"><input id="tf" type="file" accept="image/png" class="inp" aria-label="File tanda tangan PNG"><div class="flex gap-2 mt-2"><button class="btn" id="tu">Unggah TTD</button><button class="btn-d" id="td">Hapus TTD</button></div></div>
- <div style="width:160px">${num('TTD_LEBAR','Lebar TTD (mm)')}</div></div></div>
+ <div style="width:160px">${num('TTD_LEBAR','Lebar TTD (mm)')}</div></div>
+ <div class="flex flex-wrap gap-4 items-center mt-4"><div id="cp" style="width:180px;height:90px;background:#fff;border-radius:.5rem;display:flex;align-items:center;justify-content:center;color:#777;font-size:12px">${c.CAP?`<img src="${c.CAP}" alt="CAP" style="max-width:100%;max-height:100%">`:'Belum ada CAP'}</div>
+ <div class="flex-1" style="min-width:220px"><input id="cf" type="file" accept="image/png" class="inp" aria-label="File CAP PNG"><div class="flex gap-2 mt-2"><button class="btn" id="cu">Unggah CAP</button><button class="btn-d" id="cd">Hapus CAP</button></div></div>
+ <div style="width:160px"><label for="cz">Ukuran CAP</label><select id="cz" class="inp">${[['1.2','Kecil'],['1.6','Sedang'],['2','Besar']].map(([v,t])=>`<option value="${v}" ${String(c.CAP_UKURAN||'1.6')===v?'selected':''}>${t}</option>`).join('')}</select></div></div>
+ <div class="mt-4"><div class="text-xs mb-1" style="color:var(--text-2)">Pratinjau di Cetak Surat Tugas (CAP menimpa sebagian tanda tangan di sebelah kiri):</div><div id="gp" style="width:260px;height:120px;background:#fff;border-radius:.5rem;display:flex;align-items:center;justify-content:center;color:#777;font-size:12px">${c.TTDCAP?`<img src="${c.TTDCAP}" alt="TTD dan CAP" style="max-width:100%;max-height:100%">`:(c.TTD?`<img src="${c.TTD}" alt="TTD" style="max-width:100%;max-height:100%">`:'Belum ada TTD')}</div></div></div>
  <div class="glass p-5 mb-4"><b>Kwitansi</b><div class="grid gap-3 md:grid-cols-2 mt-1">${txt('KWI_KODE_REKENING','Kode Rekening bawaan — dipakai jika bidang belum mengisi (pisahkan dengan spasi)',1)}${txt('KWI_PREFIX','Awalan "Sebagai pembayaran" (diikuti Maksud Perjalanan Dinas)',1)}${txt('TARIF_DALAM','Tarif per hari - Dalam Kota (Rp)')}${txt('TARIF_LUAR','Tarif per hari - Luar Kota (Rp)')}${txt('TARIF_LUARDAERAH','Tarif per hari - Luar Daerah (Rp)')}</div></div>
  <button class="btn" id="sc">Simpan Pengaturan</button>
  <div class="glass p-5 mt-6" style="border:1px solid var(--red)"><b style="color:var(--red)">Zona Berbahaya</b>
  <p class="text-xs mt-1" style="color:var(--text-2)">Mengosongkan seluruh Data SPPD, Kwitansi, Laporan Perjalanan Dinas, Log Aktivitas, Pengajuan Pencairan, dan RRPD (status Generate &amp; Keterangan), lalu mengembalikan nomor Surat Tugas &amp; SPPD mulai dari awal. Data DPA, Data Master Pegawai, dan Manajemen Pengguna tidak terpengaruh. Tindakan ini tidak bisa dibatalkan.</p>
  <button class="btn-d mt-3" id="rd">RESET DATA</button></div>`;
+ let ttdU=c.TTD||'',capU=c.CAP||'';
+ const gpSet=u=>{$('#gp').innerHTML=u?`<img src="${u}" alt="TTD dan CAP" style="max-width:100%;max-height:100%">`:'Belum ada TTD'};
+ const gabung=async()=>{ // susun gambar gabungan TTD + CAP di browser, lalu simpan - dipakai Cetak Surat Tugas
+  if(!ttdU||!capU){gpSet(ttdU);return}
+  try{const g=await gabungTtdCap(ttdU,capU,+$('#cz').value||1.6);const u=await run(()=>api('saveTtdCap',S.t,g.data,g.skala,$('#cz').value),'Tanda tangan & CAP untuk Surat Tugas tersimpan');if(u){S.cfgCache=null;gpSet(u)}}catch(e){toast('Gagal menyusun TTD + CAP: '+(e.message||e),1)}};
+ const pngOk=f=>{if(!f){toast('Pilih file PNG terlebih dahulu',1);return false}if(f.type!=='image/png'){toast('File harus berformat PNG',1);return false}if(f.size>700*1024){toast('Ukuran file maksimal 700 KB',1);return false}return true};
+ $('#cu').onclick=()=>{const f=$('#cf').files[0];if(!pngOk(f))return;const done=busy($('#cu'),'Mengunggah…');const fr=new FileReader();fr.onload=async()=>{try{const u=await run(()=>api('saveCap',S.t,fr.result),'CAP tersimpan');if(u){S.cfgCache=null;capU=u;$('#cp').innerHTML=`<img src="${u}" alt="CAP" style="max-width:100%;max-height:100%">`;await gabung()}}finally{done()}};fr.readAsDataURL(f)};
+ $('#cd').onclick=async()=>{if(!await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus CAP?'))return;await run(()=>api('delCap',S.t),'CAP dihapus');S.cfgCache=null;cfgV()};
+ $('#cz').onchange=gabung;
  $('#tu').onclick=()=>{const f=$('#tf').files[0];if(!f)return toast('Pilih file PNG terlebih dahulu',1);if(f.type!=='image/png')return toast('File harus berformat PNG',1);if(f.size>700*1024)return toast('Ukuran file maksimal 700 KB',1);
-  const fr=new FileReader();fr.onload=async()=>{const u=await run(()=>api('saveTtd',S.t,fr.result),'Tanda tangan tersimpan');if(u){S.cfgCache=null;$('#tp').innerHTML=`<img src="${u}" alt="Tanda tangan" style="max-width:100%;max-height:100%">`}};fr.readAsDataURL(f)};
+  const fr=new FileReader();fr.onload=async()=>{const u=await run(()=>api('saveTtd',S.t,fr.result),'Tanda tangan tersimpan');if(u){S.cfgCache=null;ttdU=u;$('#tp').innerHTML=`<img src="${u}" alt="Tanda tangan" style="max-width:100%;max-height:100%">`;await gabung()}};fr.readAsDataURL(f)};
  $('#td').onclick=async()=>{if(!await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus tanda tangan pimpinan?'))return;await run(()=>api('delTtd',S.t),'Tanda tangan dihapus');S.cfgCache=null;cfgV()};
  $('#sc').onclick=async()=>{const f={FONT:$('#FONT').value,KERTAS:$('#KERTAS').value};NUM.concat(KW).forEach(k=>f[k]=$('#'+k).value);const ok=await run(()=>api('saveCfg',S.t,f),'Pengaturan disimpan');if(ok)S.cfgCache=null};
  $('#rd').onclick=resetDataDlg}
