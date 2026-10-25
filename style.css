@@ -151,3 +151,7 @@ td.t{padding:.7rem;border-bottom:1px solid var(--line);vertical-align:top}tr:hov
  body.bopen #bnav .bfab .ms{transform:rotate(90deg)}
  main{padding-bottom:120px}
 }
+
+/* ---------- Jendela pratinjau dokumen: di HP tombol ringkas (ikon), Cetak disembunyikan; di PC tetap seperti biasa ---------- */
+.pvm .pv-ico{display:none}
+@media(max-width:1023px){.pvm #pr{display:none}.pvm .pv-lbl{display:none}.pvm .pv-ico{display:inline-block}.pvm #dl,.pvm #cl{padding-left:.7rem;padding-right:.7rem}}
