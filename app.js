@@ -4,7 +4,29 @@ async function apiOnce_(f,a,ms){const ctrl=new AbortController(),timer=setTimeou
 // saat waktu tunggu habis - sebelumnya dipotong di 12-15 detik lalu diulang dari awal sampai 4x, sehingga totalnya jauh lebih lama.
 const SLOW_FN=/^(login|boot|preview|previewST|previewSP|pdf|pdfST|pdfSP|kwiPreview|kwiPdf|kwiPdfBulan|lapPreview|lapPdf|bkuPreview|bkuPdf|exportDoc|exportRekapXlsx|exportDpaXlsx|exportBkuXlsx|exportRegisterXlsx|arsipkanTahun|rrpdPreview|rrpdPdf|rrpdGenerate)$/;
 const RRPD_MENU=['rrpd','request_page','Rincian Rencana Penggunaan Dana (RRPD)'];
-const api=async(f,...a)=>{const slow=SLOW_FN.test(f);let r;for(let i=0;i<4;i++){if(i)await new Promise(ok=>setTimeout(ok,i*700));r=await apiOnce_(f,a,slow?120000:(i<2?12000:15000));if(r.success)break;if(!r.net_&&r.message!=='Gunakan POST untuk semua permintaan.')break;if(slow&&r.abort_)break}if(!r.success)throw new Error(r.message||'Terjadi kesalahan.');return r.data};
+const api0_=async(f,...a)=>{const t0=Date.now(),slow=SLOW_FN.test(f);let r;for(let i=0;i<4;i++){if(i)await new Promise(ok=>setTimeout(ok,i*700));r=await apiOnce_(f,a,slow?120000:(i<2?12000:15000));if(r.success)break;if(!r.net_&&r.message!=='Gunakan POST untuk semua permintaan.')break;if(slow&&r.abort_)break}Perf.add(f,Date.now()-t0,r.ms,r.success);if(!r.success)throw new Error(r.message||'Terjadi kesalahan.');return r.data};
+// ---------- TURBO (gas-scale-turbo): pengukur, gabung permintaan identik, batch otomatis, pemanasan ----------
+// Perf.table() / Perf.summary() di Console browser: waktu total, waktu kerja server, jaringan.
+const Perf={log:[],add(f,tot,srv,ok){this.log.push({aksi:f,total_ms:tot,server_ms:srv??'',jaringan_ms:srv!=null?tot-srv:'',ok});if(this.log.length>200)this.log.shift()},
+ table(){console.table(this.log)},summary(){const g={};this.log.forEach(x=>{const o=g[x.aksi]=g[x.aksi]||{n:0,total:0,server:0};o.n++;o.total+=x.total_ms;o.server+=+x.server_ms||0});console.table(Object.keys(g).map(k=>({aksi:k,kali:g[k].n,rata_total_ms:Math.round(g[k].total/g[k].n),rata_server_ms:Math.round(g[k].server/g[k].n)})))}};
+const READ_FN=/^(boot|dpaGet|getDpa|pencairanEligible|pengajuanList|pengajuanRincian|rrpdList|waInfo|arsipInfo|logList|pegawaiList|bkuList|getCfg|publicInfo)$/;
+const _inflight={};let _writeEpoch=0;
+const api=(f,...a)=>{ // permintaan BACA yang identik & bersamaan cukup dikirim 1x; setiap aksi TULIS menaikkan "epoch" supaya bacaan sesudahnya tidak menumpang data lama
+ if(!READ_FN.test(f)){_writeEpoch++;return api0_(f,...a)}
+ const k=_writeEpoch+'|'+f+'|'+JSON.stringify(a);if(_inflight[k])return _inflight[k];
+ const p=api0_(f,...a);_inflight[k]=p;const del=()=>{delete _inflight[k]};p.then(del,del);return p};
+let _bq=null,_batchOff=false;
+const apiQ=(f,...a)=>new Promise((res,rej)=>{ // aksi BACA yang dipanggil pada saat yang sama digabung jadi 1 eksekusi server ('batch')
+ if(_batchOff||!READ_FN.test(f)||f==='boot')return api(f,...a).then(res,rej);
+ if(!_bq){_bq=[];setTimeout(flushQ_,0)}_bq.push({f,a,res,rej})});
+async function flushQ_(){const q=_bq;_bq=null;if(!q||!q.length)return;
+ if(q.length===1){const x=q[0];return api(x.f,...x.a).then(x.res,x.rej)}
+ for(let i=0;i<q.length;i+=10){const part=q.slice(i,i+10);
+  try{const out=await api0_('batch',part.map(x=>[x.f,x.a]));part.forEach((x,j)=>{const o=out[j];o&&o.success?x.res(o.data):x.rej(new Error((o&&o.message)||'Terjadi kesalahan.'))})}
+  catch(e){if(/Aksi tidak dikenal/.test(e.message||''))_batchOff=true; // server lama belum punya 'batch' -> kirim satu per satu seperti biasa
+   part.forEach(x=>api(x.f,...x.a).then(x.res,x.rej))}}}
+function warmPing(){try{if(Date.now()-(+sessionStorage.getItem('sppd_warm')||0)<240000)return;sessionStorage.setItem('sppd_warm',String(Date.now()))}catch(e){}
+ try{fetch(GAS_URL+'?w=1',{mode:'no-cors'}).catch(()=>{})}catch(e){}} // bangunkan server selagi pengguna mengetik sandi
 const BL=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const BID=['Trantibum','Sekretariat','Linmas','Damkar'];
 const idn=s=>{if(!s)return'-';const[y,m,d]=s.split('-');return d+' '+BL[m-1].slice(0,3)+' '+y};
@@ -67,7 +89,7 @@ function loadingCard(msg,steps){ // animasi loading: logo berdenyut di dalam cin
  $('#app').innerHTML=`<div class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8 ldx" style="min-width:270px"><div class="ldx-ring"><div class="ldx-logo">${lg?`<img src="${esc(lg)}" alt="">`:'<span class="ms" style="font-size:38px;color:var(--accent-text)">assignment_turned_in</span>'}</div></div>
  <div class="font-semibold" style="color:var(--heading)">${esc(msg)}</div><div class="ldx-bar"></div><div class="ldx-step" id="ldxs">${esc((steps||['REGISTER SPPD'])[0])}</div></div></div>`;
  clearInterval(window._ldx);if(steps&&steps.length>1){let i=0;window._ldx=setInterval(()=>{const e=$('#ldxs');if(!e)return clearInterval(window._ldx);i=Math.min(i+1,steps.length-1);e.style.opacity=0;setTimeout(()=>{e.textContent=steps[i];e.style.opacity=1},200)},1400)}}
-function loginView(){$('#app').innerHTML=`<button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema" style="position:fixed;top:12px;right:12px;z-index:5"><span class="ms" id="thi"></span></button><div id="lw" class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8 w-full max-w-md">
+function loginView(){warmPing();$('#app').innerHTML=`<button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema" style="position:fixed;top:12px;right:12px;z-index:5"><span class="ms" id="thi"></span></button><div id="lw" class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8 w-full max-w-md">
 <div class="text-center"><div id="lg" style="width:84px;height:84px;margin:0 auto" class="flex items-center justify-center"><div style="background:var(--primary);color:#fff;width:64px;height:64px;border-radius:16px" class="flex items-center justify-center"><span class="ms" style="font-size:34px">assignment_turned_in</span></div></div>
 <div id="lb" class="text-xs font-bold mt-3" style="letter-spacing:.1em;color:var(--accent-text);display:none"></div><h1 id="lt" class="text-2xl font-bold mt-1" style="color:var(--heading)">REGISTER SPPD</h1><p id="ls" style="color:var(--text-2)">Penomoran & Registrasi Surat Tugas / SPPD</p></div>
 <label id="lu" for="u">Username / NIP</label><input id="u" class="inp" autocomplete="username"><label id="lp" for="p">Kata Sandi</label><div style="position:relative"><input id="p" type="password" class="inp" autocomplete="current-password" style="padding-right:2.6rem"><button type="button" id="pv" class="ms" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" style="position:absolute;right:.4rem;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;color:var(--text-2);padding:.3rem;line-height:1">visibility</button></div>
@@ -87,11 +109,13 @@ function loginSuccessAnim(){return new Promise(res=>{const d=document.createElem
  d.innerHTML=`<div class="lokcheck"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6"/></svg></div><div class="lokt">LOGIN SUCCESS!!</div>`;
  document.body.appendChild(d);setTimeout(()=>{d.remove();res()},700)})}
 function stamp(){const e=$('#sy');if(e&&S.at)e.textContent='Diperbarui '+S.at.toLocaleTimeString('id-ID',{hour12:false}).replace(/\./g,':')}
-function fill(r){S.cfgCache=null;S.dpaCache={};S.bkuCache=null;S.pegCache=null;S.ajuanElig=null;S.ajuanList=null;S.maintenance=!!r.maintenance;S.maintPesan=r.maintPesan||'';S.ver=r.ver;S.sync=r.sync||60;S.at=new Date();if(r.role){S.role=r.role;S.nama=r.nama}S.bidang=r.bidang||'';S.jadwal=r.jadwal||[];S.d=r.data;S.pg=r.pegawai;S.us=r.users;S.kwi=r.kwi||[];S.lap=r.lap||[];S.wil=r.wilayah||[];S.foto=r.foto||'';S.tarif=r.tarif||S.tarif;S.logo=r.logo;S.footer=r.footer;look(r.look);
+function fill(r){S._sig=bootSig(r);S.cfgCache=null;S.dpaCache={};S.bkuCache=null;S.pegCache=null;S.ajuanElig=null;S.ajuanList=null;S.maintenance=!!r.maintenance;S.maintPesan=r.maintPesan||'';S.ver=r.ver;S.sync=r.sync||60;S.at=new Date();if(r.role){S.role=r.role;S.nama=r.nama}S.bidang=r.bidang||'';S.jadwal=r.jadwal||[];S.d=r.data;S.pg=r.pegawai;S.us=r.users;S.kwi=r.kwi||[];S.lap=r.lap||[];S.wil=r.wilayah||[];S.foto=r.foto||'';S.tarif=r.tarif||S.tarif;S.logo=r.logo;S.footer=r.footer;look(r.look);
  if(S.t&&!r._t){try{localStorage.setItem('sppd_boot',JSON.stringify(Object.assign({},r,{_t:S.t,t:undefined})))}catch(e){store.del('sppd_boot')}}} // simpan data terakhir di perangkat ini untuk pembukaan berikutnya yang instan
 async function load(){const r=await run(()=>api('boot',S.t));if(!r)return;fill(r);shell()}
 /* Sinkron otomatis: periksa perubahan Spreadsheet secara berkala; muat ulang data bila berubah */
-async function refresh(silent){let r;try{r=await api('boot',S.t)}catch(e){const m=e.message||'';if(/Sesi berakhir/.test(m))return logout();if(/^\[MAINT\]|dalam perbaikan/.test(m))return maintScreen(m);if(!silent)toast(m||'Gagal memuat data',1);return}
+const bootSig=r=>{try{const o=Object.assign({},r);delete o.ver;delete o.t;delete o._t;return JSON.stringify(o)}catch(e){return''}}; // tanda isi data (tanpa token & penanda waktu) - untuk tahu apakah perlu digambar ulang
+async function refresh(silent){let r;try{r=await api('boot',S.t,!silent)}catch(e){const m=e.message||'';if(/Sesi berakhir/.test(m))return logout();if(/^\[MAINT\]|dalam perbaikan/.test(m))return maintScreen(m);if(!silent)toast(m||'Gagal memuat data',1);return}
+ if(silent&&S._sig&&bootSig(r)===S._sig){S.at=new Date();stamp();return} // pembaruan di belakang layar: data sama persis -> tidak perlu menggambar ulang
  fill(r);stamp();if(!silent)toast('Data diperbarui dari Spreadsheet');
  if(S.view==='input'&&$('#ps')){refreshPs();return} // form Input Surat Tugas dilindungi terpisah - tidak di-render ulang penuh supaya draft yang sedang diisi tidak hilang
  if(document.querySelector('.modal'))return; // ada modal (mis. Ubah Surat Tugas) sedang terbuka - jangan ganggu
@@ -223,7 +247,7 @@ function dpaDetail(x,y){const L=dpaDet(x.Bidang,y),m=document.createElement('div
  ${L.length?`<tr><td class="t" colspan="5"><b>TOTAL</b></td><td class="t"><b>${rpf(tot)}</b></td></tr>`:''}</tbody></table></div></div>`;
  document.body.appendChild(m);$('#dx').onclick=()=>m.remove()}
 async function dpaBox(){const el=$('#dpaBox');if(!el)return;let r=S.dpaCache[S.yr];
- if(!r){el.innerHTML='<div class="glass p-5" style="color:var(--text-2)">Memuat DPA…</div>';try{r=await api('dpaGet',S.t,S.yr);S.dpaCache[S.yr]=r}catch(e){el.innerHTML='';return}}if(!$('#dpaBox'))return;
+ if(!r){el.innerHTML='<div class="glass p-5" style="color:var(--text-2)">Memuat DPA…</div>';try{r=await apiQ('dpaGet',S.t,S.yr);S.dpaCache[S.yr]=r}catch(e){el.innerHTML='';return}}if(!el.isConnected)return; // halaman sudah digambar ulang -> pemanggilan yang lebih baru yang mengisi
  const P=r.reduce((a,x)=>a+x.Pagu,0),J=r.reduce((a,x)=>a+x.Jumlah,0),tile=(l,v,c)=>`<div class="glass p-3"><div class="text-xs" style="color:var(--text-2)">${l}</div><div class="text-xl font-bold" style="color:${c||'inherit'}">${rpf(v)}</div></div>`;
  el.innerHTML=`<div class="glass p-5"><div class="flex flex-wrap justify-between items-center gap-3 mb-3"><b>DPA Perjalanan Dinas ${S.yr}</b><button class="btn2" id="dk">Kelola DPA →</button></div>
  <div class="grid gap-3 grid-cols-1 sm:grid-cols-3 mb-4">${tile('Pagu Anggaran',P)}${tile('Jumlah (Realisasi)',J)}${tile('Sisa',P-J,P-J<0?'var(--red)':'')}</div>
@@ -315,7 +339,7 @@ async function pencairanV(){S.role==='Admin'?await pencairanAdminV():await penca
 // ---------- Ajukan Pencairan lewat WhatsApp ----------
 // Super Admin mengatur (Dashboard): aktif/nonaktif, nomor WhatsApp Kasubag Keuangan, template pesan.
 // Admin Bidang: tombol WhatsApp di Riwayat Pengajuan (status Diajukan) + tawaran kirim otomatis setelah Ajukan Pencairan.
-async function waBox(){const el=$('#waBox');if(!el)return;let c;try{c=await api('waInfo',S.t)}catch(e){return}if(!$('#waBox'))return;S.waCfg=c;
+async function waBox(){const el=$('#waBox');if(!el)return;let c;try{c=await apiQ('waInfo',S.t)}catch(e){return}if(!el.isConnected)return;S.waCfg=c;
  el.innerHTML=`<div class="glass p-4"><div class="flex flex-wrap justify-between items-center gap-2"><b>Ajukan Pencairan lewat WhatsApp</b><label for="waOn" style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--text)"><input type="checkbox" id="waOn" ${c.aktif?'checked':''}> Aktifkan</label></div>
  <p class="text-xs" style="color:var(--text-2)">Bila aktif, Admin Bidang dapat mengirim rincian Pengajuan Pencairan langsung ke WhatsApp Kasubag Keuangan dari menu Pengajuan Pencairan.</p>
  <label for="waNo">Nomor WhatsApp Kasubag Keuangan</label><input id="waNo" class="inp" inputmode="tel" placeholder="mis. 081234567890" value="${esc(c.nomor)}">
@@ -325,7 +349,7 @@ async function waBox(){const el=$('#waBox');if(!el)return;let c;try{c=await api(
  $('#waSave').onclick=async()=>{const done=busy($('#waSave'),'Menyimpan…');try{const r=await run(()=>api('saveWa',S.t,{aktif:$('#waOn').checked,nomor:$('#waNo').value,template:$('#waTpl').value}),'Pengaturan WhatsApp disimpan');if(r){S.waCfg=r;$('#waNo').value=r.nomor;$('#waTpl').value=r.template}}finally{done()}}}
 // ---------- Arsip Data per Tahun (Super Admin) ----------
 // Data tahun yang sudah lewat dipindahkan ke spreadsheet arsip, supaya spreadsheet utama ringan & aplikasi tetap cepat.
-async function arsipBox(){const el=$('#arsipBox');if(!el)return;let r;try{r=await api('arsipInfo',S.t)}catch(e){return}if(!$('#arsipBox'))return;
+async function arsipBox(){const el=$('#arsipBox');if(!el)return;let r;try{r=await apiQ('arsipInfo',S.t)}catch(e){return}if(!el.isConnected)return;
  const ry=$('#regYr');if(ry)r.arsip.forEach(a=>{if(![...ry.options].some(o=>o.value===a.tahun)){const o=document.createElement('option');o.textContent=a.tahun+' (arsip)';o.value=a.tahun;ry.appendChild(o)}}); // Register bisa diunduh juga untuk tahun yang sudah diarsipkan
  const ar=r.arsip.map(a=>`<div class="glass2 p-3 flex flex-wrap justify-between items-center gap-2"><span><b>Tahun ${esc(a.tahun)}</b><br><small style="color:var(--text-2)">Diarsipkan ${a.tgl?idnF(a.tgl):''}</small></span><a class="btn2" href="${esc(a.url)}" target="_blank" rel="noopener" style="text-decoration:none"><span class="ms">open_in_new</span> Buka Arsip</a></div>`).join('');
  el.innerHTML=`<div class="glass p-4"><b>Arsip Data per Tahun</b>
@@ -361,8 +385,8 @@ async function waKirimDlg(id){if(!waSiap())return toast('Fitur WhatsApp belum di
 const ajuK=()=>S.role+'|'+S.bidang+'|'+S.nama;
 const ajuLoad=()=>{$('#main').innerHTML='<h1 class="text-2xl font-bold mb-3">Pengajuan Pencairan Perjalanan Dinas</h1><div class="glass p-5" style="color:var(--text-2)"><span class="spin"></span> Memuat Pengajuan Pencairan…</div>'};
 const ajuBebas=()=>S.view==='pencairan'&&!document.querySelector('.modal')&&!document.querySelector('.ajuanChk:checked'); // jangan render ulang saat admin sedang memilih/membuka dialog
-const ajuAmbilA=()=>Promise.all([api('pencairanEligible',S.t),api('pengajuanList',S.t),api('waInfo',S.t).catch(()=>null)]);
-const ajuAmbilK=y=>Promise.all([api('pengajuanList',S.t),api('dpaGet',S.t,y).catch(()=>[])]);
+const ajuAmbilA=()=>Promise.all([apiQ('pencairanEligible',S.t),apiQ('pengajuanList',S.t),apiQ('waInfo',S.t).catch(()=>null)]); // 3 bacaan -> 1 eksekusi server
+const ajuAmbilK=y=>Promise.all([apiQ('pengajuanList',S.t),apiQ('dpaGet',S.t,y).catch(()=>[])]); // 2 bacaan -> 1 eksekusi server
 async function pencairanAdminV(){
  const k=ajuK(),c=S.ajuSnap&&S.ajuSnap.k===k?S.ajuSnap:null,wa0=JSON.stringify(S.waCfg||null);
  if(c)pencairanAdminR(c.elig,c.riw);else ajuLoad();
