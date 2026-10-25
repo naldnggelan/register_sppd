@@ -151,7 +151,7 @@ function bmenuSheet(){const mi=menu();const ov=document.createElement('div');ov.
  const sh=document.createElement('div');sh.className='bsheet';
  sh.innerHTML=`<div class="flex items-center justify-between mb-3"><b style="color:var(--heading)">Menu</b><button class="btn2" id="bsx" aria-label="Tutup">Tutup</button></div><div class="grid4">${mi.map(m=>bitemHtml(m,'bitem2')).join('')}</div>`;
  document.body.appendChild(ov);document.body.appendChild(sh);
- const close=()=>{ov.remove();sh.remove()};
+ document.body.classList.add('bopen');const close=()=>{ov.remove();sh.remove();document.body.classList.remove('bopen')};
  ov.onclick=close;sh.querySelector('#bsx').onclick=close;
  sh.querySelectorAll('.bitem2').forEach(n=>n.onclick=()=>{close();if(n.classList.contains('on'))return;S.view=n.dataset.v;S.page=1;shell()})}
 // ---------- Menu grup di sidebar (submenu buka-tutup) - hanya tampilan; halaman & izin tetap dari menu() ----------

@@ -69,6 +69,7 @@
     '#beeMenu{position:fixed;left:10px;bottom:50px;z-index:2147483002;display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:12px;background:rgba(20,24,30,.92);border:1px solid rgba(127,127,127,.35);box-shadow:0 8px 24px rgba(0,0,0,.35);font:13px/1.2 system-ui,sans-serif}' +
     '#beeMenu button{display:flex;align-items:center;gap:8px;padding:7px 10px;border:0;border-radius:8px;background:none;color:#eee;cursor:pointer;text-align:left;font:inherit}' +
     '#beeMenu button:hover,#beeMenu button.on{background:rgba(255,255,255,.12)}#beeMenu button span{font-size:17px;width:22px;text-align:center}' +
+    '@media(max-width:1023px){#beeBtn{bottom:calc(104px + env(safe-area-inset-bottom,0px))}#beeMenu{bottom:calc(144px + env(safe-area-inset-bottom,0px))}}' + // di HP: di atas menu bawah, tidak menutupi tombol
     '@media print{#bee,#beeTrail,#beeBtn,#beeMenu{display:none!important}}';
   document.head.appendChild(css);
 
