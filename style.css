@@ -124,3 +124,13 @@ td.t{padding:.7rem;border-bottom:1px solid var(--line);vertical-align:top}tr:hov
 .ldx-ov.out{opacity:0;transition:opacity .25s}
 @keyframes ldxIn{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){.ondot{animation-duration:3s}}
+
+/* ---------- Menu grup di sidebar (submenu buka-tutup) ---------- */
+.navg{display:flex;gap:.6rem;align-items:center;padding:.7rem .9rem;border-radius:.5rem;cursor:pointer;font-weight:600;color:var(--text-2);min-height:44px;transition:background-color .18s ease,color .18s ease;user-select:none}
+.navg:hover{background:rgba(16,185,129,.1)}.navgrp.act>.navg{color:var(--accent-text)}
+.navchev{margin-left:auto;transition:transform .2s ease;font-size:20px}.navgrp.open .navchev{transform:rotate(180deg)}
+.navsub{display:none}.navgrp.open .navsub{display:block;animation:navIn .2s ease-out}
+@keyframes navIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.nav.sub{padding-left:2.1rem;font-size:.93em;position:relative}
+.nav.sub::before{content:'';position:absolute;left:1.35rem;top:0;bottom:0;border-left:2px solid rgba(127,127,127,.25)}
+#side.collapsed .nav.sub{padding-left:.5rem}#side.collapsed .nav.sub::before{display:none}#side.collapsed .navg{justify-content:center;padding-left:.5rem;padding-right:.5rem}

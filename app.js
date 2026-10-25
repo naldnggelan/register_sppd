@@ -154,9 +154,16 @@ function bmenuSheet(){const mi=menu();const ov=document.createElement('div');ov.
  const close=()=>{ov.remove();sh.remove()};
  ov.onclick=close;sh.querySelector('#bsx').onclick=close;
  sh.querySelectorAll('.bitem2').forEach(n=>n.onclick=()=>{close();if(n.classList.contains('on'))return;S.view=n.dataset.v;S.page=1;shell()})}
+// ---------- Menu grup di sidebar (submenu buka-tutup) - hanya tampilan; halaman & izin tetap dari menu() ----------
+const NAV_GRUP=[{id:'pengajuan',ikon:'assignment',nama:'Pengajuan',isi:['kwi','lap','pencairan']}];
+function sideNav(mi){const item=(m,sub)=>`<div class="nav${sub?' sub':''} ${S.view===m[0]?'on':''}" data-v="${m[0]}" role="button" tabindex="0" title="${m[2]}"><span class="ms">${m[1]}</span><span class="nav-label">${m[2]}</span></div>`;
+ const pakai={};NAV_GRUP.forEach(g=>{const a=g.isi.map(k=>mi.find(m=>m[0]===k)).filter(Boolean);if(a.length>=2)pakai[g.id]={g,a}}); // grup dipakai bila peran ini punya minimal 2 halamannya
+ const sudah={};return mi.map(m=>{const gid=Object.keys(pakai).find(k=>pakai[k].g.isi.includes(m[0]));if(!gid)return item(m);if(sudah[gid])return'';sudah[gid]=1;
+  const {g,a}=pakai[gid],aktif=a.some(x=>x[0]===S.view),buka=aktif||store.get('sppd_grp_'+g.id)!=='0';
+  return`<div class="navgrp${buka?' open':''}${aktif?' act':''}"><div class="navg" data-g="${g.id}" role="button" tabindex="0" aria-expanded="${buka}" title="${g.nama}"><span class="ms">${g.ikon}</span><span class="nav-label">${g.nama}</span><span class="ms navchev nav-label">expand_more</span></div><div class="navsub">${a.map(x=>item(x,1)).join('')}</div></div>`}).join('')}
 function shell(){store.set('sppd_v',S.view);const mi=menu(),sc=store.get('sppd_side')==='1';$('#app').innerHTML=`<div class="flex gap-3 p-3" style="min-height:100vh"><aside id="side" class="glass p-3 shrink-0 flex flex-col${sc?' collapsed':''}">
 <div class="p-3 mb-2 flex items-center gap-3 sb-brand">${S.logo?`<img src="${S.logo}" alt="Logo" style="width:40px;height:40px;object-fit:contain;flex:none">`:''}<div class="sb-text"><b style="color:var(--heading);font-size:16px">REGISTER SPPD</b><div class="text-xs" style="color:var(--text-2)">Satpol PP & Damkar</div></div></div>
-${mi.map(m=>`<div class="nav ${S.view===m[0]?'on':''}" data-v="${m[0]}" role="button" tabindex="0" title="${m[2]}"><span class="ms">${m[1]}</span><span class="nav-label">${m[2]}</span></div>`).join('')}
+${sideNav(mi)}
 <div class="glass p-3 mt-auto text-xs sb-foot"><div class="flex items-center gap-3">${ava(S.foto,S.nama,40)}<div class="sb-text"><b>${esc(S.nama)}</b><br>${esc(S.role)}${S.bidang?' · '+esc(S.bidang):''}</div></div></div></aside>
 <main class="flex-1 min-w-0"><div class="glass flex items-center flex-wrap gap-2 px-3 py-2 mb-3" style="border-radius:1rem"><button class="btn2" id="tg" aria-label="Ciutkan atau perluas sidebar" title="Ciutkan atau perluas sidebar"><span class="ms" id="tgi">${sc?'menu':'menu_open'}</span></button>
 <b class="text-lg sm:text-xl" style="min-width:0">${esc(menu().find(m=>m[0]===S.view)[2])}</b><div class="flex items-center gap-2" style="margin-left:auto"><button class="btn2" id="rf" aria-label="Update Data" title="Update Data - terhubung ke Spreadsheet"><span class="ondot" id="ond"></span> <span class="hidden sm:inline">Update Data</span></button><button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema"><span class="ms" id="thi"></span></button><button class="btn2" onclick="logout()" aria-label="Keluar" title="Keluar"><span class="ms">logout</span> Keluar</button></div></div><div id="main" class="fadein"></div><footer class="text-center text-xs mt-10 pb-2" style="color:var(--text-2)">${esc(S.footer)}</footer></main>
@@ -165,6 +172,7 @@ ${mi.length>1?`<nav id="bnav">${mi.slice(0,2).map(m=>bitemHtml(m)).join('')}<div
  $('#tg').onclick=sideToggle;
  if($('#bmore'))$('#bmore').onclick=bmenuSheet;
  document.querySelectorAll('.nav,.bitem').forEach(n=>n.onclick=()=>{if(n.classList.contains('on'))return;S.view=n.dataset.v;S.page=1;shell()});
+ document.querySelectorAll('.navg').forEach(g=>g.onclick=()=>{const w=g.parentElement,o=!w.classList.contains('open');w.classList.toggle('open',o);g.setAttribute('aria-expanded',o);store.set('sppd_grp_'+g.dataset.g,o?'1':'0')});
  $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#rf').onclick=()=>refresh(false);stamp();onlineDot();
  ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,pencairan:pencairanV,rrpd:rrpdV,lap:lapV,pjb:pjbV,bku:bkuV,log:logV})[S.view]();if(!S._pf){S._pf=1;setTimeout(prefetchKeu,1500)}}
 const dlXlsx=p=>dl('data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+p.b64,p.name);
