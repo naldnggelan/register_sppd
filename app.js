@@ -475,6 +475,7 @@ async function prefetchKeu(){ // muat data Pengajuan Pencairan & RRPD di belakan
    if(S.role==='Admin'){if(!(S.ajuSnap&&S.ajuSnap.k===k)){const [elig,riw,wa]=await ajuAmbilA();if(ajuK()!==k)return;S.ajuanElig=elig;S.ajuanList=riw;if(wa)S.waCfg=wa;S.ajuSnap={k,elig,riw}}}
    else if(!(S.kasSnap&&S.kasSnap.k===k+'|'+y)){const [riw,dpa]=await ajuAmbilK(y);if(ajuK()!==k)return;S.ajuanList=riw;S.kasSnap={k:k+'|'+y,riw,dpa:dpa||[]}}
   }
+  if((ms.includes('cfg')||ms.includes('pjb'))&&!['cfg','pjb'].includes(S.view)&&!(S.cfgSnap&&S.cfgSnap.k===k)){const c=await api('getCfg',S.t);if(ajuK()===k&&!S.cfgSnap)S.cfgSnap={k,c}} // Pejabat & Pengaturan Cetak siap seketika
   if(ms.includes('rrpd')&&S.view!=='rrpd'){S.rrpdCache=S.rrpdCache||{};if(!S.rrpdCache[y]){const r=await api('rrpdList',S.t,y);if(ajuK()===k)S.rrpdCache[y]=r}}
  }catch(e){}}
 function pencairanKasubagR(riw,dpa){
@@ -614,7 +615,17 @@ function resetPassDlg(username){const m=document.createElement('div');m.classNam
  $('#rzk').onclick=async()=>{const p=$('#rz1').value;if(p.length<6){$('#rz2').textContent='Kata sandi minimal 6 karakter.';return}
   const done=busy($('#rzk'),'Memproses…');
   try{await run(()=>api('resetPass',S.t,username,p),'Kata sandi diatur ulang');if(document.body.contains(m))m.remove()}finally{done()}}}
-async function pjbV(){let c=S.cfgCache;if(!c){c=await run(()=>api('getCfg',S.t));if(!c)return;S.cfgCache=c}
+// ---------- Pejabat Penandatangan & Pengaturan Cetak: tampil seketika dari data terakhir, diperbarui di belakang layar ----------
+async function cfgPage_(v,render,judul){const k=ajuK(),snap=S.cfgSnap&&S.cfgSnap.k===k?S.cfgSnap.c:null,c0=S.cfgCache||snap;
+ if(c0){S._cfgDirty=false;render(c0)}else $('#main').innerHTML='<h1 class="text-2xl font-bold mb-3">'+judul+'</h1><div class="glass p-5" style="color:var(--text-2)"><span class="spin"></span> Memuat pengaturan…</div>';
+ if(S.cfgCache)return; // sudah segar di sesi ini
+ const p=api('getCfg',S.t),c=c0?await p.catch(()=>null):await run(()=>p);if(!c||ajuK()!==k)return;S.cfgCache=c;S.cfgSnap={k,c};
+ if(S.view!==v||document.querySelector('.modal'))return;
+ if(!c0||(!S._cfgDirty&&JSON.stringify(c)!==JSON.stringify(c0))){S._cfgDirty=false;render(c)}} // tidak menimpa isian yang sedang diketik
+function cfgIsi_(o){if(S.cfgSnap&&S.cfgSnap.c)Object.assign(S.cfgSnap.c,o);S.cfgCache=null} // setelah simpan: data terakhir ikut diperbarui
+async function pjbV(){return cfgPage_('pjb',pjbR,'Pengaturan Pejabat Penandatangan')}
+async function cfgV(){return cfgPage_('cfg',cfgR,'Pengaturan Cetak PDF')}
+function pjbR(c){
  const f=(k,l)=>`<div><label for="${k}">${l}</label><input id="${k}" class="inp" value="${esc(c[k])}"></div>`,
  bl=(t,d,body)=>`<div class="glass p-5 mb-4"><b>${t}</b><p class="text-xs" style="color:var(--text-2)">${d}</p><div class="grid gap-3 md:grid-cols-2 mt-1">${body}</div></div>`,
  K=['TTD_JABATAN','TTD_NAMA','TTD_PANGKAT','TTD_NIP','KWI_KPA_NAMA','KWI_KPA_NIP','KWI_BENDAHARA_NAMA','KWI_BENDAHARA_NIP'];
@@ -625,8 +636,9 @@ async function pjbV(){let c=S.cfgCache;if(!c){c=await run(()=>api('getCfg',S.t))
  ${bl('Bendahara Pengeluaran (Kwitansi)','',f('KWI_BENDAHARA_NAMA','Nama')+f('KWI_BENDAHARA_NIP','NIP'))}
  ${bl('Pejabat Pelaksana Teknis Kegiatan - Kepala Bidang (Kwitansi)','Otomatis mengikuti bidang pada Surat Tugas. Kosongkan jika belum ada.',BID.map(b=>f('KWI_PPTK_'+b.toUpperCase()+'_NAMA','Kepala Bidang '+b+' — Nama')+f('KWI_PPTK_'+b.toUpperCase()+'_NIP','Kepala Bidang '+b+' — NIP')).join(''))}
  <button class="btn" id="sj">Simpan Pejabat Penandatangan</button>`;
- $('#sj').onclick=async()=>{const o={};K.forEach(k=>o[k]=$('#'+k).value);const ok=await run(()=>api('saveCfg',S.t,o),'Pejabat penandatangan disimpan');if(ok)S.cfgCache=null}}
-async function cfgV(){let c=S.cfgCache;if(!c){c=await run(()=>api('getCfg',S.t));if(!c)return;S.cfgCache=c}
+ $('#sj').onclick=async()=>{const o={};K.forEach(k=>o[k]=$('#'+k).value);const ok=await run(async()=>{await api('saveCfg',S.t,o);return true},'Pejabat penandatangan disimpan');if(ok)cfgIsi_(o)};
+ $('#main').addEventListener('input',()=>{S._cfgDirty=true})}
+function cfgR(c){
  const num=(k,l)=>`<div><label for="${k}">${l}</label><input id="${k}" type="number" min="0" max="60" class="inp" value="${c[k]}"></div>`;
  const blok=(p,t)=>`<div class="glass p-5 mb-4"><b>${t}</b><div class="grid gap-3 grid-cols-2 md:grid-cols-5">${num('UKURAN_'+p,'Ukuran huruf (pt)')}${num(p+'_ATAS','Margin atas (mm)')}${num(p+'_BAWAH','Margin bawah (mm)')}${num(p+'_KIRI','Margin kiri (mm)')}${num(p+'_KANAN','Margin kanan (mm)')}</div></div>`;
  const KW=['KWI_KODE_REKENING','KWI_PREFIX','TARIF_LUAR','TARIF_DALAM','TARIF_LUARDAERAH'],txt=(k,l,w)=>`<div class="${w?'md:col-span-2':''}"><label for="${k}">${l}</label><input id="${k}" class="inp" value="${esc(c[k])}"></div>`,
@@ -652,16 +664,16 @@ async function cfgV(){let c=S.cfgCache;if(!c){c=await run(()=>api('getCfg',S.t))
  const gpSet=u=>{$('#gp').innerHTML=u?`<img src="${u}" alt="TTD dan CAP" style="max-width:100%;max-height:100%">`:'Belum ada TTD'};
  const gabung=async()=>{ // susun gambar gabungan TTD + CAP di browser, lalu simpan - dipakai Cetak Surat Tugas
   if(!ttdU||!capU){gpSet(ttdU);return}
-  try{const g=await gabungTtdCap(ttdU,capU,+$('#cz').value||1.6);const u=await run(()=>api('saveTtdCap',S.t,g.data,g.skala,$('#cz').value),'Tanda tangan & CAP untuk Surat Tugas tersimpan');if(u){S.cfgCache=null;gpSet(u)}}catch(e){toast('Gagal menyusun TTD + CAP: '+(e.message||e),1)}};
+  try{const g=await gabungTtdCap(ttdU,capU,+$('#cz').value||1.6);const u=await run(()=>api('saveTtdCap',S.t,g.data,g.skala,$('#cz').value),'Tanda tangan & CAP untuk Surat Tugas tersimpan');if(u){S.cfgCache=null;S.cfgSnap=null;gpSet(u)}}catch(e){toast('Gagal menyusun TTD + CAP: '+(e.message||e),1)}};
  const pngOk=f=>{if(!f){toast('Pilih file PNG terlebih dahulu',1);return false}if(f.type!=='image/png'){toast('File harus berformat PNG',1);return false}if(f.size>700*1024){toast('Ukuran file maksimal 700 KB',1);return false}return true};
- $('#cu').onclick=()=>{const f=$('#cf').files[0];if(!pngOk(f))return;const done=busy($('#cu'),'Mengunggah…');const fr=new FileReader();fr.onload=async()=>{try{const u=await run(()=>api('saveCap',S.t,fr.result),'CAP tersimpan');if(u){S.cfgCache=null;capU=u;$('#cp').innerHTML=`<img src="${u}" alt="CAP" style="max-width:100%;max-height:100%">`;await gabung()}}finally{done()}};fr.readAsDataURL(f)};
- $('#cd').onclick=async()=>{if(!await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus CAP?'))return;await run(()=>api('delCap',S.t),'CAP dihapus');S.cfgCache=null;cfgV()};
+ $('#cu').onclick=()=>{const f=$('#cf').files[0];if(!pngOk(f))return;const done=busy($('#cu'),'Mengunggah…');const fr=new FileReader();fr.onload=async()=>{try{const u=await run(()=>api('saveCap',S.t,fr.result),'CAP tersimpan');if(u){S.cfgCache=null;S.cfgSnap=null;capU=u;$('#cp').innerHTML=`<img src="${u}" alt="CAP" style="max-width:100%;max-height:100%">`;await gabung()}}finally{done()}};fr.readAsDataURL(f)};
+ $('#cd').onclick=async()=>{if(!await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus CAP?'))return;await run(()=>api('delCap',S.t),'CAP dihapus');S.cfgCache=null;S.cfgSnap=null;cfgV()};
  $('#cz').onchange=gabung;
  $('#tu').onclick=()=>{const f=$('#tf').files[0];if(!f)return toast('Pilih file PNG terlebih dahulu',1);if(f.type!=='image/png')return toast('File harus berformat PNG',1);if(f.size>700*1024)return toast('Ukuran file maksimal 700 KB',1);
-  const fr=new FileReader();fr.onload=async()=>{const u=await run(()=>api('saveTtd',S.t,fr.result),'Tanda tangan tersimpan');if(u){S.cfgCache=null;ttdU=u;$('#tp').innerHTML=`<img src="${u}" alt="Tanda tangan" style="max-width:100%;max-height:100%">`;await gabung()}};fr.readAsDataURL(f)};
- $('#td').onclick=async()=>{if(!await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus tanda tangan pimpinan?'))return;await run(()=>api('delTtd',S.t),'Tanda tangan dihapus');S.cfgCache=null;cfgV()};
- $('#sc').onclick=async()=>{const f={FONT:$('#FONT').value,KERTAS:$('#KERTAS').value};NUM.concat(KW).forEach(k=>f[k]=$('#'+k).value);const ok=await run(()=>api('saveCfg',S.t,f),'Pengaturan disimpan');if(ok)S.cfgCache=null};
- $('#rd').onclick=resetDataDlg}
+  const fr=new FileReader();fr.onload=async()=>{const u=await run(()=>api('saveTtd',S.t,fr.result),'Tanda tangan tersimpan');if(u){S.cfgCache=null;S.cfgSnap=null;ttdU=u;$('#tp').innerHTML=`<img src="${u}" alt="Tanda tangan" style="max-width:100%;max-height:100%">`;await gabung()}};fr.readAsDataURL(f)};
+ $('#td').onclick=async()=>{if(!await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus tanda tangan pimpinan?'))return;await run(()=>api('delTtd',S.t),'Tanda tangan dihapus');S.cfgCache=null;S.cfgSnap=null;cfgV()};
+ $('#sc').onclick=async()=>{const f={FONT:$('#FONT').value,KERTAS:$('#KERTAS').value};NUM.concat(KW).forEach(k=>f[k]=$('#'+k).value);const ok=await run(async()=>{await api('saveCfg',S.t,f);return true},'Pengaturan disimpan');if(ok)cfgIsi_(f)};
+ $('#rd').onclick=resetDataDlg;$('#main').addEventListener('input',()=>{S._cfgDirty=true})}
 function resetDataDlg(){const m=document.createElement('div');m.className='modal';
  m.innerHTML=`<div class="glass2 p-6 w-full max-w-md"><h2 class="text-lg font-bold" style="color:var(--red)">RESET DATA</h2>
  <p class="text-sm mt-2">Peringatan!! Tindakan ini akan <b>menghapus seluruh Data SPPD, Kwitansi, Laporan Perjalanan Dinas, Log Aktivitas, Pengajuan Pencairan, dan RRPD</b>, serta mengembalikan nomor Surat Tugas &amp; SPPD mulai dari awal. Tindakan ini <b>tidak bisa dibatalkan</b>.</p>
