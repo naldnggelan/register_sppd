@@ -114,12 +114,12 @@ function fill(r){S._sig=bootSig(r);S.cfgCache=null;S.dpaCache={};S.bkuCache=null
 async function load(){const r=await run(()=>api('boot',S.t));if(!r)return;fill(r);shell()}
 /* Sinkron otomatis: periksa perubahan Spreadsheet secara berkala; muat ulang data bila berubah */
 const bootSig=r=>{try{const o=Object.assign({},r);delete o.ver;delete o.t;delete o._t;return JSON.stringify(o)}catch(e){return''}}; // tanda isi data (tanpa token & penanda waktu) - untuk tahu apakah perlu digambar ulang
-function ldxOverlay(msg,steps){ // animasi seperti saat login, tampil di atas halaman (dipakai tombol Update Data)
+function ldxOverlay(msg,steps,okTxt){ // animasi seperti saat login, tampil di atas halaman (dipakai tombol Update Data)
  const lg=S.logo||store.get('sppd_logo')||'',d=document.createElement('div');d.className='ldx-ov';
  d.innerHTML=`<div class="glass2 p-8 ldx" style="min-width:270px"><div class="ldx-ring"><div class="ldx-logo">${lg?`<img src="${esc(lg)}" alt="">`:'<span class="ms" style="font-size:38px;color:var(--accent-text)">sync</span>'}</div></div><div class="font-semibold" style="color:var(--heading)">${esc(msg)}</div><div class="ldx-bar"></div><div class="ldx-step">${esc(steps[0])}</div></div>`;
  document.body.appendChild(d);const st=d.querySelector('.ldx-step'),t0=Date.now();let i=0;
  const iv=setInterval(()=>{i=Math.min(i+1,steps.length-1);st.style.opacity=0;setTimeout(()=>{st.textContent=steps[i];st.style.opacity=1},200)},1200);
- return ok=>{clearInterval(iv);setTimeout(()=>{if(ok){st.style.opacity=1;st.textContent='Data terbaru siap ✓';st.style.color='#22c55e'}d.classList.add('out');setTimeout(()=>d.remove(),ok?650:250)},Math.max(0,700-(Date.now()-t0)))}}
+ return ok=>{clearInterval(iv);setTimeout(()=>{if(ok){st.style.opacity=1;st.textContent=okTxt||'Data terbaru siap ✓';st.style.color='#22c55e'}d.classList.add('out');setTimeout(()=>d.remove(),ok?650:250)},Math.max(0,700-(Date.now()-t0)))}}
 function onlineDot(){const e=$('#ond');if(!e)return;const on=navigator.onLine!==false;e.classList.toggle('off',!on);const b=$('#rf');if(b)b.title=on?'Update Data - terhubung ke Spreadsheet':'Update Data - tidak ada koneksi internet'}
 addEventListener('online',onlineDot);addEventListener('offline',onlineDot);
 async function refresh(silent){if(silent)return refresh0_(true); // tombol Update Data: tampilkan animasi, data tetap diambil langsung dari Spreadsheet
@@ -239,9 +239,10 @@ function rekap(){const g=groups(),n=10,pgs=Math.max(1,Math.ceil(g.length/n));S.p
  $('#xx').onclick=async()=>{const done=busy($('#xx'),'Membuat Excel…');try{const p=await run(()=>api('exportRekapXlsx',S.t),'Excel siap diunduh');if(p)dlXlsx(p)}finally{done()}};
  document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>act(b.dataset.a,b.dataset.i,b))}
 async function act(a,k,btn){const rs=S.d.filter(x=>x.NoST===k);
- if(a==='pv'){const done=busy(btn,'Menyiapkan dokumen…');try{const v=await run(()=>api('preview',S.t,k));if(v)prev(v,k)}finally{done()}}
- if(a==='pvst'){const done=busy(btn,'Menyiapkan dokumen…');try{const v=await run(()=>api('previewST',S.t,k));if(v)prev(v,k,'pdfST')}finally{done()}}
- if(a==='pvsp'){const done=busy(btn,'Menyiapkan dokumen…');try{const v=await run(()=>api('previewSP',S.t,k));if(v)prev(v,k,'pdfSP')}finally{done()}}
+ const LDX_DOK=['Mengambil data Surat Tugas…','Menyusun dokumen…','Memasang kop & tanda tangan…','Hampir selesai…']; // animasi loading seperti saat login
+ if(a==='pv'){const done=busy(btn,'Menyiapkan dokumen…'),ov=ldxOverlay('Generate Surat Tugas & SPPD…',LDX_DOK,'Dokumen siap ✓');let v;try{v=await run(()=>api('preview',S.t,k));if(v)prev(v,k)}finally{ov(!!v);done()}}
+ if(a==='pvst'){const done=busy(btn,'Menyiapkan dokumen…'),ov=ldxOverlay('Cetak Surat Tugas…',LDX_DOK,'Surat Tugas siap ✓');let v;try{v=await run(()=>api('previewST',S.t,k));if(v)prev(v,k,'pdfST')}finally{ov(!!v);done()}}
+ if(a==='pvsp'){const done=busy(btn,'Menyiapkan dokumen…'),ov=ldxOverlay('Cetak SPPD…',['Mengambil data SPPD…','Menyusun SPPD tiap pegawai…','Memasang kop…','Hampir selesai…'],'SPPD siap ✓');let v;try{v=await run(()=>api('previewSP',S.t,k));if(v)prev(v,k,'pdfSP')}finally{ov(!!v);done()}}
  if(a==='dl'&&await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus Surat Tugas '+k+' beserta '+rs.length+' SPPD pegawai?')){await run(()=>api('delST',S.t,k),'Surat Tugas dihapus');await load()}
  if(a==='ed')edit(rs)}
 function prev(v,key,fn){const m=document.createElement('div');m.className='modal pvm';
@@ -253,8 +254,9 @@ function prev(v,key,fn){const m=document.createElement('div');m.className='modal
  $('#pr').onclick=()=>{try{const w=$('#fr').contentWindow;w.focus();w.print()}catch(e){toast('Perangkat ini tidak mendukung cetak langsung. Gunakan Unduh PDF lalu cetak dari situ.',1)}};
  if($('#dw'))$('#dw').onclick=async()=>{const done=busy($('#dw'),'Membuat Word…');try{const p=await run(()=>api('exportDoc',S.t,tp,key,'docx'),'Dokumen Word siap diunduh');if(p)dl('data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,'+p.b64,p.name)}finally{done()}};
  if($('#dg'))$('#dg').onclick=async()=>{const done=busy($('#dg'),'Menyiapkan Docs…');try{const p=await run(()=>api('exportDoc',S.t,tp,key,'gdoc'),'Dokumen dibuat di Google Docs');if(!p)return;$('#dg').outerHTML=`<a class="btn2" href="${p.url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px">Buka di Docs ↗</a>`;window.open(p.url,'_blank')}finally{done()}};
- if($('#wa'))$('#wa').onclick=async()=>{const done=busy($('#wa'),'Menyiapkan PDF…');try{const p=await run(()=>api(fn||'pdf',S.t,key));if(p)stWaDlg(p,key)}finally{done()}};
- $('#dl').onclick=async()=>{const done=busy($('#dl'),'Membuat PDF…');try{const p=await run(()=>api(fn||'pdf',S.t,key),'PDF siap diunduh');if(!p)return;const A=document.createElement('a');A.href='data:application/pdf;base64,'+p.b64;A.download=p.name;document.body.appendChild(A);A.click();A.remove()}finally{done()}}}
+ const pdfOv=()=>tp==='ST'?ldxOverlay('Membuat PDF…',['Menyusun dokumen…','Mengubah ke PDF…','Hampir selesai…'],'PDF siap ✓'):null; // animasi loading untuk Surat Tugas & SPPD
+ if($('#wa'))$('#wa').onclick=async()=>{const done=busy($('#wa'),'Menyiapkan PDF…'),ov=pdfOv();let p;try{p=await run(()=>api(fn||'pdf',S.t,key));if(p)stWaDlg(p,key)}finally{if(ov)ov(!!p);done()}};
+ $('#dl').onclick=async()=>{const done=busy($('#dl'),'Membuat PDF…'),ov=pdfOv();let p;try{p=await run(()=>api(fn||'pdf',S.t,key),'PDF siap diunduh');if(!p)return;const A=document.createElement('a');A.href='data:application/pdf;base64,'+p.b64;A.download=p.name;document.body.appendChild(A);A.click();A.remove()}finally{if(ov)ov(!!p);done()}}}
 // ---------- Kirim Surat Tugas ke WhatsApp ----------
 // HP: file PDF dibagikan langsung lewat menu Bagikan (pilih WhatsApp). Komputer/peramban lama: PDF diunduh + WhatsApp dibuka dengan pesan ringkas, lalu PDF dilampirkan manual.
 function stWaTeks(noST){const rs=(S.d||[]).filter(r=>r.NoST===noST),x=rs[0];if(!x)return'Surat Tugas Nomor: '+noST;
