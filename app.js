@@ -114,9 +114,20 @@ function fill(r){S._sig=bootSig(r);S.cfgCache=null;S.dpaCache={};S.bkuCache=null
 async function load(){const r=await run(()=>api('boot',S.t));if(!r)return;fill(r);shell()}
 /* Sinkron otomatis: periksa perubahan Spreadsheet secara berkala; muat ulang data bila berubah */
 const bootSig=r=>{try{const o=Object.assign({},r);delete o.ver;delete o.t;delete o._t;return JSON.stringify(o)}catch(e){return''}}; // tanda isi data (tanpa token & penanda waktu) - untuk tahu apakah perlu digambar ulang
-async function refresh(silent){let r;try{r=await api('boot',S.t,!silent)}catch(e){const m=e.message||'';if(/Sesi berakhir/.test(m))return logout();if(/^\[MAINT\]|dalam perbaikan/.test(m))return maintScreen(m);if(!silent)toast(m||'Gagal memuat data',1);return}
+function ldxOverlay(msg,steps){ // animasi seperti saat login, tampil di atas halaman (dipakai tombol Update Data)
+ const lg=S.logo||store.get('sppd_logo')||'',d=document.createElement('div');d.className='ldx-ov';
+ d.innerHTML=`<div class="glass2 p-8 ldx" style="min-width:270px"><div class="ldx-ring"><div class="ldx-logo">${lg?`<img src="${esc(lg)}" alt="">`:'<span class="ms" style="font-size:38px;color:var(--accent-text)">sync</span>'}</div></div><div class="font-semibold" style="color:var(--heading)">${esc(msg)}</div><div class="ldx-bar"></div><div class="ldx-step">${esc(steps[0])}</div></div>`;
+ document.body.appendChild(d);const st=d.querySelector('.ldx-step'),t0=Date.now();let i=0;
+ const iv=setInterval(()=>{i=Math.min(i+1,steps.length-1);st.style.opacity=0;setTimeout(()=>{st.textContent=steps[i];st.style.opacity=1},200)},1200);
+ return ok=>{clearInterval(iv);setTimeout(()=>{if(ok){st.style.opacity=1;st.textContent='Data terbaru siap ✓';st.style.color='#22c55e'}d.classList.add('out');setTimeout(()=>d.remove(),ok?650:250)},Math.max(0,700-(Date.now()-t0)))}}
+function onlineDot(){const e=$('#ond');if(!e)return;const on=navigator.onLine!==false;e.classList.toggle('off',!on);const b=$('#rf');if(b)b.title=on?'Update Data - terhubung ke Spreadsheet':'Update Data - tidak ada koneksi internet'}
+addEventListener('online',onlineDot);addEventListener('offline',onlineDot);
+async function refresh(silent){if(silent)return refresh0_(true); // tombol Update Data: tampilkan animasi, data tetap diambil langsung dari Spreadsheet
+ const done=ldxOverlay('Memperbarui data…',['Menghubungkan ke Spreadsheet…','Mengambil data terbaru…','Menyiapkan tampilan…']);const at=S.at;
+ try{await refresh0_(false)}finally{done(S.at!==at)}} // S.at berubah = data berhasil diambil
+async function refresh0_(silent){let r;try{r=await api('boot',S.t,!silent)}catch(e){const m=e.message||'';if(/Sesi berakhir/.test(m))return logout();if(/^\[MAINT\]|dalam perbaikan/.test(m))return maintScreen(m);if(!silent)toast(m||'Gagal memuat data',1);return}
  if(silent&&S._sig&&bootSig(r)===S._sig){S.at=new Date();stamp();return} // pembaruan di belakang layar: data sama persis -> tidak perlu menggambar ulang
- fill(r);stamp();if(!silent)toast('Data diperbarui dari Spreadsheet');
+ fill(r);stamp();if(!silent)toast('Data diperbarui dari Spreadsheet');setTimeout(onlineDot,0);
  if(S.view==='input'&&$('#ps')){refreshPs();return} // form Input Surat Tugas dilindungi terpisah - tidak di-render ulang penuh supaya draft yang sedang diisi tidak hilang
  if(document.querySelector('.modal'))return; // ada modal (mis. Ubah Surat Tugas) sedang terbuka - jangan ganggu
  // CATATAN: sebelumnya di sini juga ditahan kalau fokus sedang ada di input/select mana pun (mis. kolom cari di Rekap),
@@ -148,13 +159,13 @@ function shell(){store.set('sppd_v',S.view);const mi=menu(),sc=store.get('sppd_s
 ${mi.map(m=>`<div class="nav ${S.view===m[0]?'on':''}" data-v="${m[0]}" role="button" tabindex="0" title="${m[2]}"><span class="ms">${m[1]}</span><span class="nav-label">${m[2]}</span></div>`).join('')}
 <div class="glass p-3 mt-auto text-xs sb-foot"><div class="flex items-center gap-3">${ava(S.foto,S.nama,40)}<div class="sb-text"><b>${esc(S.nama)}</b><br>${esc(S.role)}${S.bidang?' · '+esc(S.bidang):''}</div></div></div></aside>
 <main class="flex-1 min-w-0"><div class="glass flex items-center flex-wrap gap-2 px-3 py-2 mb-3" style="border-radius:1rem"><button class="btn2" id="tg" aria-label="Ciutkan atau perluas sidebar" title="Ciutkan atau perluas sidebar"><span class="ms" id="tgi">${sc?'menu':'menu_open'}</span></button>
-<b class="text-lg sm:text-xl" style="min-width:0">${esc(menu().find(m=>m[0]===S.view)[2])}</b><div class="flex items-center gap-2" style="margin-left:auto"><button class="btn2" id="rf" aria-label="Update Data" title="Update Data"><span class="ms">sync</span> <span class="hidden sm:inline">Update Data</span></button><button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema"><span class="ms" id="thi"></span></button><button class="btn2" onclick="logout()" aria-label="Keluar" title="Keluar"><span class="ms">logout</span> Keluar</button></div></div><div id="main" class="fadein"></div><footer class="text-center text-xs mt-10 pb-2" style="color:var(--text-2)">${esc(S.footer)}</footer></main>
+<b class="text-lg sm:text-xl" style="min-width:0">${esc(menu().find(m=>m[0]===S.view)[2])}</b><div class="flex items-center gap-2" style="margin-left:auto"><button class="btn2" id="rf" aria-label="Update Data" title="Update Data - terhubung ke Spreadsheet"><span class="ondot" id="ond"></span> <span class="hidden sm:inline">Update Data</span></button><button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema"><span class="ms" id="thi"></span></button><button class="btn2" onclick="logout()" aria-label="Keluar" title="Keluar"><span class="ms">logout</span> Keluar</button></div></div><div id="main" class="fadein"></div><footer class="text-center text-xs mt-10 pb-2" style="color:var(--text-2)">${esc(S.footer)}</footer></main>
 ${mi.length>1?`<nav id="bnav">${mi.slice(0,2).map(m=>bitemHtml(m)).join('')}<div class="bfab" id="bmore" role="button" tabindex="0" aria-label="Menu lainnya" title="Menu lainnya"><span class="ms">apps</span></div>${mi.slice(-2).map(m=>bitemHtml(m)).join('')}</nav>`:''}</div>`;
  function sideToggle(){const s=$('#side');s.classList.toggle('collapsed');const on=s.classList.contains('collapsed');store.set('sppd_side',on?'1':'0');const ic=$('#tgi');if(ic)ic.textContent=on?'menu':'menu_open'}
  $('#tg').onclick=sideToggle;
  if($('#bmore'))$('#bmore').onclick=bmenuSheet;
  document.querySelectorAll('.nav,.bitem').forEach(n=>n.onclick=()=>{if(n.classList.contains('on'))return;S.view=n.dataset.v;S.page=1;shell()});
- $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#rf').onclick=()=>refresh(false);stamp();
+ $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#rf').onclick=()=>refresh(false);stamp();onlineDot();
  ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,pencairan:pencairanV,rrpd:rrpdV,lap:lapV,pjb:pjbV,bku:bkuV,log:logV})[S.view]();if(!S._pf){S._pf=1;setTimeout(prefetchKeu,1500)}}
 const dlXlsx=p=>dl('data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+p.b64,p.name);
 async function logV(){const r=await run(()=>api('logList',S.t));if(!r)return;
