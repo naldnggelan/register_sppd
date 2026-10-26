@@ -174,7 +174,16 @@ ${mi.length>1?`<nav id="bnav">${mi.slice(0,2).map(m=>bitemHtml(m)).join('')}<div
  document.querySelectorAll('.nav,.bitem').forEach(n=>n.onclick=()=>{if(n.classList.contains('on'))return;S.view=n.dataset.v;S.page=1;shell()});
  document.querySelectorAll('.navg').forEach(g=>g.onclick=()=>{const w=g.parentElement,o=!w.classList.contains('open');w.classList.toggle('open',o);g.setAttribute('aria-expanded',o);store.set('sppd_grp_'+g.dataset.g,o?'1':'0')});
  $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#rf').onclick=()=>refresh(false);stamp();onlineDot();
- ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,pencairan:pencairanV,rrpd:rrpdV,lap:lapV,pjb:pjbV,bku:bkuV,log:logV})[S.view]();if(!S._pf){S._pf=1;setTimeout(prefetchKeu,1500)}}
+ ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,pencairan:pencairanV,rrpd:rrpdV,lap:lapV,pjb:pjbV,bku:bkuV,log:logV})[S.view]();animMenu_();if(!S._pf){S._pf=1;setTimeout(prefetchKeu,1500)}}
+// ---------- Animasi pindah menu (Opsi 3 - Kartu Bertahap) + warna menu yang ditekan ----------
+// Hanya tampilan: judul, kartu & baris tabel muncul berurutan; menu yang ditekan berganti warna. Tidak dijalankan saat data diperbarui di belakang layar.
+function animMenu_(){const pindah=S._lastView!==S.view;S._lastView=S.view;if(!pindah)return;
+ try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return}catch(e){}
+ const side=$('#side'),bn=$('#bnav');if(side)side.classList.add('nanim');if(bn)bn.classList.add('nanim');
+ const m=$('#main');if(!m)return;const t0=Date.now();
+ const jalan=()=>{let n=0;const el=[...m.children].flatMap(ch=>{const kartu=ch.querySelectorAll(':scope>.grid>*,:scope .grid>.glass,:scope .grid>.glass2,:scope tbody>tr');return kartu.length?[ch].concat([...kartu].slice(0,15)):[ch]});
+  el.slice(0,24).forEach(e=>{if(e.classList.contains('stg'))return;e.classList.add('stg');e.style.animationDelay=Math.min(n++*40,700)+'ms'})};
+ jalan();const ob=new MutationObserver(()=>{if(Date.now()-t0>1800||!m.isConnected)return ob.disconnect();jalan()});ob.observe(m,{childList:true});setTimeout(()=>ob.disconnect(),1900)} // halaman yang datanya menyusul (memuat) tetap ikut beranimasi
 const dlXlsx=p=>dl('data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+p.b64,p.name);
 async function logV(){const r=await run(()=>api('logList',S.t));if(!r)return;
  $('#main').innerHTML=`<div class="flex items-center justify-between flex-wrap gap-2 mb-3"><div><h1 class="text-2xl font-bold">Log Aktivitas</h1><p class="text-xs" style="color:var(--text-2)">Riwayat login, penerbitan/ubah/hapus Surat Tugas, Kwitansi, Laporan, dan manajemen pengguna. Menampilkan ${r.length} aktivitas terakhir.</p></div><button class="btn2" id="logClr" ${r.length?'':'disabled'}><span class="ms">delete_sweep</span> Hapus Log</button></div>

@@ -155,3 +155,14 @@ td.t{padding:.7rem;border-bottom:1px solid var(--line);vertical-align:top}tr:hov
 /* ---------- Jendela pratinjau dokumen: di HP tombol ringkas (ikon), Cetak disembunyikan; di PC tetap seperti biasa ---------- */
 .pvm .pv-ico{display:none}
 @media(max-width:1023px){.pvm #pr{display:none}.pvm .pv-lbl{display:none}.pvm .pv-ico{display:inline-block}.pvm #dl,.pvm #cl{padding-left:.7rem;padding-right:.7rem}}
+
+/* ---------- Animasi pindah menu: Kartu Bertahap + warna menu yang ditekan ---------- */
+@keyframes stgIn{0%{opacity:0;transform:translateY(18px) scale(.98)}70%{opacity:1;transform:translateY(-2px)}100%{opacity:1;transform:none}}
+.stg{animation:stgIn .5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes navFill{from{background-size:0% 100%;background-color:transparent;color:var(--text-2)}to{background-size:100% 100%;background-color:var(--primary);color:#fff}}
+@keyframes navIco{0%{transform:scale(.6) rotate(-15deg)}60%{transform:scale(1.2) rotate(4deg)}100%{transform:none}}
+.nav.on{background-image:linear-gradient(90deg,var(--primary),color-mix(in srgb,var(--primary) 55%,#f59e0b));background-repeat:no-repeat;background-size:100% 100%;box-shadow:0 8px 20px -10px var(--primary)} /* menu aktif: warna gradasi */
+.nanim .nav.on{animation:navFill .45s cubic-bezier(.2,.8,.2,1) both} /* menu yang ditekan: warna mengisi dari kiri */
+.nanim .nav.on .ms,.nanim .bitem.on .ms{display:inline-block;animation:navIco .5s cubic-bezier(.2,.8,.2,1) both}
+.nanim .bitem.on{color:var(--accent-text)}
+@media(prefers-reduced-motion:reduce){.stg,.nanim .nav.on,.nanim .nav.on .ms,.nanim .bitem.on .ms{animation:none}}
