@@ -243,7 +243,7 @@ async function act(a,k,btn){const rs=S.d.filter(x=>x.NoST===k);
  if(a==='pv'){const done=busy(btn,'Menyiapkan dokumen…'),ov=ldxOverlay('Generate Surat Tugas & SPPD…',LDX_DOK,'Dokumen siap ✓');let v;try{v=await run(()=>api('preview',S.t,k));if(v)prev(v,k)}finally{ov(!!v);done()}}
  if(a==='pvst'){const done=busy(btn,'Menyiapkan dokumen…'),ov=ldxOverlay('Cetak Surat Tugas…',LDX_DOK,'Surat Tugas siap ✓');let v;try{v=await run(()=>api('previewST',S.t,k));if(v)prev(v,k,'pdfST')}finally{ov(!!v);done()}}
  if(a==='pvsp'){const done=busy(btn,'Menyiapkan dokumen…'),ov=ldxOverlay('Cetak SPPD…',['Mengambil data SPPD…','Menyusun SPPD tiap pegawai…','Memasang kop…','Hampir selesai…'],'SPPD siap ✓');let v;try{v=await run(()=>api('previewSP',S.t,k));if(v)prev(v,k,'pdfSP')}finally{ov(!!v);done()}}
- if(a==='dl'&&await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus Surat Tugas '+k+' beserta '+rs.length+' SPPD pegawai?')){await run(()=>api('delST',S.t,k),'Surat Tugas dihapus');await load()}
+ if(a==='dl'&&await confirmDlg('Peringatan!! Data yang dihapus tidak bisa dipulihkan kembali.\n\nHapus Surat Tugas '+k+' beserta '+rs.length+' SPPD pegawai?')){const r=await run(()=>api('delST',S.t,k));if(r!==undefined)toast(r&&r.berikutnya?'Surat Tugas dihapus. Nomor berikutnya: '+r.berikutnya:'Surat Tugas dihapus');await load()}
  if(a==='ed')edit(rs)}
 function prev(v,key,fn){const m=document.createElement('div');m.className='modal pvm';
  const tp=fn==='kwiPdf'?'KWI':fn==='lapPdf'?'LAP':fn==='bkuPdf'?'BKU':fn==='rrpdPdf'?'RRPD':'ST',
