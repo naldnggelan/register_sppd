@@ -443,10 +443,10 @@ const salamWaktu=()=>{const h=new Date().getHours();return h>=4&&h<11?'Selamat P
 async function waKirimDlg(id){if(!waSiap())return toast('Fitur WhatsApp belum diaktifkan oleh Super Admin.',1);
  const p=(S.ajuanList||[]).find(x=>x.id===id);if(!p)return;const rin=await run(()=>api('pengajuanRincian',S.t,id));if(!rin)return;
  const link=t=>'https://wa.me/'+S.waCfg.nomor+'?text='+encodeURIComponent(t),m=document.createElement('div');m.className='modal';
- m.innerHTML=`<div class="glass2 p-6 w-full max-w-2xl" style="max-height:92vh;overflow:auto"><h2 class="text-lg font-bold">Kirim Pengajuan lewat WhatsApp</h2><p class="text-xs mt-1" style="color:var(--text-2)">Ke Kasubag Keuangan (+${esc(S.waCfg.nomor)}). Periksa pesan di bawah, boleh diubah sebelum dikirim.</p>
- <textarea id="waMsg" class="inp mt-3" rows="14" aria-label="Isi pesan WhatsApp">${esc(waPesan(p,rin))}</textarea>
+ m.innerHTML=`<div class="glass2 p-6 w-full max-w-2xl" style="max-height:92vh;overflow:auto"><h2 class="text-lg font-bold">Kirim Pengajuan lewat WhatsApp</h2><p class="text-xs mt-1" style="color:var(--text-2)">Ke Kasubag Keuangan (+${esc(S.waCfg.nomor)}). ${sup()?'Periksa pesan di bawah, boleh diubah sebelum dikirim.':'Isi pesan mengikuti template dari Super Admin (tidak dapat diubah).'}</p>
+ <textarea id="waMsg" class="inp mt-3" rows="14" aria-label="Isi pesan WhatsApp"${sup()?'':' readonly style="opacity:.85;cursor:default"'}>${esc(waPesan(p,rin))}</textarea>
  <div class="flex gap-2 justify-end mt-4 flex-wrap"><button class="btn2" id="waX">Tutup</button><a class="btn" id="waGo" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;background:#25D366"><span class="ms">chat</span> Buka WhatsApp &amp; Kirim</a></div></div>`;
- document.body.appendChild(m);const go=$('#waGo'),ta=$('#waMsg');go.href=link(ta.value);ta.oninput=()=>go.href=link(ta.value);
+ document.body.appendChild(m);const go=$('#waGo'),ta=$('#waMsg');go.href=link(ta.value);if(sup())ta.oninput=()=>go.href=link(ta.value);
  $('#waX').onclick=()=>m.remove();go.onclick=()=>setTimeout(()=>m.remove(),300)}
 // ---------- Percepatan halaman Pengajuan Pencairan & RRPD ----------
 // Tampil seketika dari data terakhir (snapshot per akun), lalu diperbarui diam-diam di belakang layar; semua permintaan dikirim bersamaan.
