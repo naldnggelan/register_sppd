@@ -410,7 +410,7 @@ async function waBox(){const el=$('#waBox');if(!el)return;let c;try{c=await apiQ
  <p class="text-xs" style="color:var(--text-2)">Bila aktif, Admin Bidang dapat mengirim rincian Pengajuan Pencairan langsung ke WhatsApp Kasubag Keuangan dari menu Pengajuan Pencairan.</p>
  <label for="waNo">Nomor WhatsApp Kasubag Keuangan</label><input id="waNo" class="inp" inputmode="tel" placeholder="mis. 081234567890" value="${esc(c.nomor)}">
  <label for="waTpl">Template Pesan</label><textarea id="waTpl" class="inp" rows="12">${esc(c.template)}</textarea>
- <p class="text-xs mt-1" style="color:var(--text-2)">Kode isian otomatis: <b>{bidang}</b> <b>{tanggal}</b> <b>{jumlah}</b> <b>{jumlah_st}</b> <b>{rincian}</b> <b>{admin}</b>. Kosongkan template lalu Simpan untuk kembali ke template bawaan.</p>
+ <p class="text-xs mt-1" style="color:var(--text-2)">Kode isian otomatis: <b>{bidang}</b> <b>{tanggal}</b> <b>{jumlah}</b> <b>{jumlah_st}</b> <b>{rincian}</b> <b>{admin}</b> <b>{salam}</b>. Salam (Selamat Pagi/Siang/Sore/Malam) otomatis tampil di baris paling atas sesuai jam kirim; tulis <b>{salam}</b> di template bila ingin meletakkannya di tempat lain. Kosongkan template lalu Simpan untuk kembali ke template bawaan.</p>
  <div class="flex justify-end mt-2"><button class="btn2" id="waSave"><span class="ms">save</span> Simpan Pengaturan WhatsApp</button></div></div>`;
  $('#waSave').onclick=async()=>{const done=busy($('#waSave'),'Menyimpan…');try{const r=await run(()=>api('saveWa',S.t,{aktif:$('#waOn').checked,nomor:$('#waNo').value,template:$('#waTpl').value}),'Pengaturan WhatsApp disimpan');if(r){S.waCfg=r;$('#waNo').value=r.nomor;$('#waTpl').value=r.template}}finally{done()}}}
 // ---------- Arsip Data per Tahun (Super Admin) ----------
@@ -436,8 +436,10 @@ function arsipDlg(y){const m=document.createElement('div');m.className='modal';
    if(r){m.remove();S.rrpdCache={};S.ajuSnap=null;S.kasSnap=null;toast('Data tahun '+y+' berhasil diarsipkan ('+r.hasil.DATA_SPPD+' baris SPPD).');await refresh(true)}else if(document.body.contains(m))$('#ap1').value=''}finally{done()}}}
 const waSiap=()=>S.waCfg&&S.waCfg.aktif&&S.waCfg.nomor;
 function waPesan(p,rin){const rincian=rin.map((o,i)=>`${i+1}. No. ST: ${o.noST}\n   Tanggal: ${idnF(o.tglST)} · Tujuan: ${o.tujuan}\n   Maksud: ${o.maksud||'-'}\n   Petugas: ${o.jumlahPetugas??o.pegawai.length} orang · ${rpf(o.total)}`).join('\n\n');
- const isi={bidang:p.bidang||S.bidang,tanggal:idnF(p.tglAjukan),jumlah:rpf(p.jumlah),jumlah_st:String(p.noSTList.length),rincian,admin:S.nama,status:p.status};
- return S.waCfg.template.replace(/\{(\w+)\}/g,(m,k)=>k in isi?isi[k]:m)}
+ const isi={bidang:p.bidang||S.bidang,tanggal:idnF(p.tglAjukan),jumlah:rpf(p.jumlah),jumlah_st:String(p.noSTList.length),rincian,admin:S.nama,status:p.status,salam:salamWaktu()};
+ const tpl=/\{salam\}/.test(S.waCfg.template)?S.waCfg.template:'{salam},\n\n'+S.waCfg.template; // salam otomatis di baris paling atas (kecuali {salam} sudah diletakkan sendiri di template)
+ return tpl.replace(/\{(\w+)\}/g,(m,k)=>k in isi?isi[k]:m)}
+const salamWaktu=()=>{const h=new Date().getHours();return h>=4&&h<11?'Selamat Pagi':h>=11&&h<15?'Selamat Siang':h>=15&&h<18?'Selamat Sore':'Selamat Malam'}; // mengikuti jam di perangkat pengirim
 async function waKirimDlg(id){if(!waSiap())return toast('Fitur WhatsApp belum diaktifkan oleh Super Admin.',1);
  const p=(S.ajuanList||[]).find(x=>x.id===id);if(!p)return;const rin=await run(()=>api('pengajuanRincian',S.t,id));if(!rin)return;
  const link=t=>'https://wa.me/'+S.waCfg.nomor+'?text='+encodeURIComponent(t),m=document.createElement('div');m.className='modal';
