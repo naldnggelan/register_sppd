@@ -196,3 +196,15 @@ td.t{padding:.7rem;border-bottom:1px solid var(--line);vertical-align:top}tr:hov
 .nf-kosong{color:var(--text-2);text-align:center;padding:12px;font-size:13px}
 @media(max-width:640px){.nf-it{flex-wrap:wrap}.nf-rt{text-align:left;width:100%;padding-left:21px}.nf-mk{white-space:normal}}
 @media(prefers-reduced-motion:reduce){.nf-cnt{animation:none}}
+/* ===== Halaman Riwayat Perjalanan Petugas ===== */
+.rw-ctl{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}.rw-ctl select{width:auto;min-width:150px}
+.rw-tl{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-2)}.rw-tl .ms{font-size:18px;color:var(--accent-text)}
+.rw-u{font-size:12px;font-weight:400;color:var(--text-2)}
+.rw-nm{color:var(--accent-text);font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.rw-bar{height:7px;border-radius:4px;background:rgba(127,127,127,.18);margin-bottom:5px;max-width:200px;overflow:hidden}
+.rw-bar span{display:block;height:100%;border-radius:4px;background:var(--accent-text);transition:width .4s ease}
+.rw-bar span.rw-hi{background:#f59e0b}.rw-bar span.rw-lo{background:#60a5fa}
+.rw-tag{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:4px}
+.rw-tag.hi{background:rgba(245,158,11,.15);color:#f59e0b}.rw-tag.lo{background:rgba(96,165,250,.15);color:#60a5fa}
+.rw-nol{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.rw-nol span{font-size:12.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:rgba(127,127,127,.08)}
+.rw-sum{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.rw-sum span{padding:5px 11px;border-radius:10px;background:rgba(127,127,127,.1);border:1px solid var(--line);font-size:13px}
