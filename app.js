@@ -689,7 +689,25 @@ async function loadSubKeg(){const y=$('#f1').value.slice(0,4),bd=$('#f4').value,
  let r=S.dpaCache[y];if(!r){try{r=await api('dpaGet',S.t,y);S.dpaCache[y]=r}catch(e){r=[]}}const rec=(r||[]).find(x=>x.Bidang===bd),subs=rec?rec.Subs:[];
  sel.innerHTML='<option value="">— Tidak ada (opsional) —</option>'+subs.map(s=>`<option value="${esc(s.id)}" data-nama="${esc(s.nama)}" data-jenis="${esc(s.jenis)}">${esc(s.nama)} (${esc(s.jenis)})</option>`).join('');
  subKegHint()}
-function subKegHint(){const op=$('#f7')&&$('#f7').selectedOptions[0];$('#f7h').textContent=op&&op.value?'Jenis Perjalanan: '+op.dataset.jenis:'Jika dipilih, Jenis Perjalanan & Tarif Kwitansi nanti terisi otomatis.'}
+// ---------- Peringatan Sisa DPA di formulir Input (hanya peringatan - tidak memblokir penerbitan) ----------
+// Perkiraan biaya ST = tarif (sesuai Jenis Perjalanan Sub Kegiatan, bawaan Luar Kota) x lama hari x jumlah petugas.
+// Sisa perkiraan = Sisa DPA (Pagu - Kwitansi terbit) - perkiraan ST lain yang belum berkwitansi - perkiraan ST ini.
+function dpaWarn(){const el=$('#dpaW');if(!el)return;S._dpaW=null;const f1=$('#f1'),f3=$('#f3'),f4=$('#f4');if(!f1||!f4)return;
+ const y=f1.value.slice(0,4),bd=f4.value,n=S.pick.length,lama=Number(f3&&f3.value)||0,r=S.dpaCache[y];
+ if(!n||!lama||!bd){el.innerHTML='';return}
+ const rec=(r||[]).find(x=>x.Bidang===bd);if(!rec){el.innerHTML='';return}
+ if(!rec.Pagu){el.innerHTML=`<div class="dw dw-info mb-4"><span class="ms">info</span><div>Pagu DPA Bidang <b>${esc(bd)}</b> tahun ${y} belum diisi, sehingga sisa anggaran tidak dapat diperiksa.</div></div>`;return}
+ const op=$('#f7')&&$('#f7').selectedOptions[0],jn=op&&op.value?op.dataset.jenis:'Luar Kota',tf=tarifFor(jn),est=tf*lama*n;
+ const K=idxST_(S.kwi);let pend=0;(S.d||[]).forEach(x=>{if(x.Bidang===bd&&String(x.TglST).slice(0,4)===y&&!K.has(x.NoST))pend+=tarifFor(x.JenisPerjalanan||'Luar Kota')*(Number(x.Lama)||0)});
+ const sisa=rec.Sisa-pend-est,lvl=sisa<0?'minus':sisa<rec.Pagu*0.1?'tipis':'aman';S._dpaW={lvl,est,sisa,bd};
+ const jd={minus:'⚠ Sisa DPA TIDAK MENCUKUPI untuk Surat Tugas ini',tipis:'Perhatian: Sisa DPA hampir habis (di bawah 10% Pagu)',aman:'Sisa DPA mencukupi'}[lvl];
+ el.innerHTML=`<div class="dw dw-${lvl} mb-4"><span class="ms">${lvl==='aman'?'account_balance_wallet':'warning'}</span><div><b>${jd}</b>
+ <div class="dw-g"><span>Perkiraan biaya ST ini</span><b>${rpf(est)}</b><small>${n} petugas × ${lama} hari × ${rpf(tf)} (${esc(jn)})</small>
+ <span>Sisa DPA Bidang ${esc(bd)} ${y}</span><b>${rpf(rec.Sisa)}</b><small>Pagu ${rpf(rec.Pagu)} − Kwitansi terbit ${rpf(rec.Jumlah)}</small>
+ <span>ST lain belum ada Kwitansi</span><b>${rpf(pend)}</b><small>perkiraan, belum masuk realisasi</small>
+ <span>Perkiraan sisa setelah ST ini</span><b class="dw-s">${rpf(sisa)}</b><small>${(sisa/rec.Pagu*100).toFixed(1).replace('.',',')}% dari Pagu</small></div>
+ ${lvl==='minus'?'<p class="text-xs mt-2">Surat Tugas tetap dapat diterbitkan, namun mohon koordinasikan dengan Kasubag Keuangan.</p>':''}</div></div>`}
+function subKegHint(){const op=$('#f7')&&$('#f7').selectedOptions[0];$('#f7h').textContent=op&&op.value?'Jenis Perjalanan: '+op.dataset.jenis:'Jika dipilih, Jenis Perjalanan & Tarif Kwitansi nanti terisi otomatis.';dpaWarn()}
 function inputV(){const lastST=S.lastST;S.lastST=null;$('#main').innerHTML=`${lastST?`<div class="glass p-4 mb-4" style="border:1px solid var(--accent-text);background:color-mix(in srgb,var(--accent-text) 12%,transparent)"><b style="color:var(--accent-text)">✓ Berhasil diterbitkan</b><br>Surat Tugas <b>${esc(lastST)}</b> sudah tersimpan. Cek di Rekap &amp; Data SPPD kalau mau lihat/cetak lagi - formulir di bawah ini KOSONG untuk Surat Tugas yang BARU, bukan lanjutan dari yang barusan.</div>`:''}<h1 class="text-2xl font-bold mb-3">Formulir Surat Tugas & SPPD</h1><div class="glass p-5 mb-4"><b>1. Detail Surat Tugas</b>
  <p class="text-xs" style="color:var(--text-2)">Nomor Surat Tugas & SPPD dibuat otomatis (dikunci agar tidak ganda).</p>
  <div class="grid gap-3 md:grid-cols-3"><div><label>Tanggal Surat Tugas</label><input id="f1" type="date" class="inp" value="${today()}" min="${today()}"></div><div><label>Tanggal Berangkat</label><input id="f2" type="date" class="inp" value="${today()}" min="${today()}"></div><div><label>Lama Bertugas (hari)</label><input id="f3" type="number" min="1" value="1" class="inp"></div>
@@ -699,6 +717,7 @@ function inputV(){const lastST=S.lastST;S.lastST=null;$('#main').innerHTML=`${la
  <label for="fds">Dasar <small style="font-weight:400;color:var(--text-2)">(opsional — kosongkan bila tidak dipakai. Tulis satu dasar per baris, nomor 1, 2, 3 dibuat otomatis)</small></label><textarea id="fds" rows="4" class="inp" placeholder="Contoh:&#10;Undang - Undang Nomor 6 Tahun 2016 tentang Desa&#10;Peraturan Pemerintah Nomor 16 Tahun 2018 tentang Satuan Polisi Pamong Praja"></textarea>
  <div class="flex gap-2 mt-1 flex-wrap"><button class="btn2" type="button" id="fdsL"><span class="ms">history</span> Pakai Dasar terakhir</button><button class="btn2" type="button" id="fdsX"><span class="ms">backspace</span> Kosongkan</button></div></div>
  <div class="glass p-5 mb-4"><b>2. Pegawai yang Ditugaskan</b><div class="flex gap-2 mt-2"><select id="ps" class="inp"><option value="">— Pilih pegawai —</option>${S.pg.map(p=>`<option value="${esc(p.NIP)}">${esc(p.Nama)}</option>`).join('')}</select><button class="btn" id="pa">Tambah</button></div><div id="warn" class="mt-3"></div><div id="chips" class="mt-3"></div></div>
+ <div id="dpaW"></div>
  <div class="flex flex-wrap gap-2"><button class="btn" id="sb">Simpan & Terbitkan Penugasan</button>${sup()?'<button class="btn2" id="sbk" title="1 Surat Tugas + 1 SPPD: petugas no. 1 di kolom 2, petugas lain sebagai Pengikut" style="border-color:#d97706;color:#d97706"><span class="ms">group</span> Terbitkan Khusus</button>':''}</div>`;chips();
  $('#fdsL').onclick=()=>{const d=store.get('sppd_dasar');if(!d)return toast('Belum ada Dasar tersimpan di perangkat ini.',1);$('#fds').value=d};$('#fdsX').onclick=()=>{$('#fds').value=''};
  $('#pa').onclick=()=>{const v=$('#ps').value;if(!v||S.pick.includes(v))return;const c=clash(v,$('#f2').value,$('#f3').value);if(c)return warn([msgClash(v,c)+' dan tidak dapat ditambahkan.']);S.pick.push(v);warn([]);chips()};
@@ -706,12 +725,13 @@ function inputV(){const lastST=S.lastST;S.lastST=null;$('#main').innerHTML=`${la
  $('#f1').onchange=loadSubKeg;$('#f4').onchange=loadSubKeg;$('#f7').onchange=subKegHint;loadSubKeg();
  const terbit=async khusus=>{if($('#f1').value<today()||$('#f2').value<today())return toast('Tanggal tidak boleh tanggal yang sudah berlalu.',1);
   if(khusus&&!await confirmDlg('Terbitkan Khusus:\n• 1 Surat Tugas + 1 SPPD (hanya 2 nomor)\n• Petugas no. 1 di kolom 2 SPPD\n• Petugas lainnya masuk kolom 8 Pengikut (Tanggal Lahir dari NIP, Keterangan dari Jabatan)\n\nLanjutkan?','Terbitkan Khusus'))return;
+  dpaWarn();const dw=S._dpaW;if(dw&&dw.lvl==='minus'&&!await confirmDlg('⚠ PERINGATAN SISA DPA\n\nPerkiraan biaya Surat Tugas ini '+rpf(dw.est)+' melebihi perkiraan sisa DPA Bidang '+dw.bd+'.\nPerkiraan sisa setelah ST ini: '+rpf(dw.sisa)+'\n\nTetap terbitkan Surat Tugas?','Tetap Terbitkan'))return;
   const sk=$('#f7').selectedOptions[0];
   const f={tgl:$('#f1').value,berangkat:$('#f2').value,lama:$('#f3').value,bidang:$('#f4').value,tujuan:$('#f5').value,maksud:$('#f6').value,dasar:$('#fds')?$('#fds').value.trim():'',nips:S.pick,subKegiatan:sk&&sk.value?sk.dataset.nama:'',jenisPerjalanan:sk&&sk.value?sk.dataset.jenis:'',khusus:!!khusus};
   const pl=prosesLayar(khusus?'Menerbitkan Surat Tugas Khusus':'Menerbitkan Surat Tugas & SPPD','Menyimpan data dan mengambil nomor Surat Tugas…'); // animasi proses di tengah layar sampai pratinjau Surat Tugas siap
   try{const r=await run(()=>api('saveST',S.t,f));if(!r)return;if(f.dasar)store.set('sppd_dasar',f.dasar);toast('Terbit: '+r.noST);S.pick=[];S.view='rekap';S.page=1;pl.step('Nomor '+r.noST+' terbit. Memperbarui data…');await load();pl.step(khusus?'Menyiapkan Surat Tugas & SPPD Khusus…':'Menyiapkan tampilan Surat Tugas…');const v=await run(()=>api(khusus?'preview':'previewST',S.t,r.noST));pl.tutup();if(v)khusus?prev(v,r.noST):prev(v,r.noST,'pdfST')}finally{pl.tutup()}};
  $('#sb').onclick=()=>terbit(false);if($('#sbk'))$('#sbk').onclick=()=>terbit(true)}
-function chips(){$('#chips').innerHTML=S.pick.map((n,i)=>{const p=S.pg.find(x=>String(x.NIP)===n);return`<div class="glass p-3 mb-2 flex justify-between items-center"><div><b>${i+1}. ${esc(p.Nama)}</b><br><small>${esc(p.Pangkat)} · NIP ${esc(p.NIP)} · ${esc(p.Jabatan)}</small></div><button class="btn-d" aria-label="Hapus" onclick="S.pick.splice(${i},1);chips()"><span class="ms">close</span></button></div>`}).join('')||'<small style="color:var(--text-2)">Belum ada pegawai dipilih.</small>'}
+function chips(){$('#chips').innerHTML=S.pick.map((n,i)=>{const p=S.pg.find(x=>String(x.NIP)===n);return`<div class="glass p-3 mb-2 flex justify-between items-center"><div><b>${i+1}. ${esc(p.Nama)}</b><br><small>${esc(p.Pangkat)} · NIP ${esc(p.NIP)} · ${esc(p.Jabatan)}</small></div><button class="btn-d" aria-label="Hapus" onclick="S.pick.splice(${i},1);chips()"><span class="ms">close</span></button></div>`}).join('')||'<small style="color:var(--text-2)">Belum ada pegawai dipilih.</small>';dpaWarn()}
 
 async function pegV(){let c=S.pegCache;if(!c){c=await run(()=>api('pegawaiList',S.t));if(!c)return;S.pegCache=c}
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Data Master Pegawai</h1><div class="glass p-5 mb-4 grid gap-2 md:grid-cols-6"><input id="n1" class="inp" placeholder="Nama"><input id="n2" class="inp" placeholder="Pangkat/Gol"><input id="n3" class="inp" placeholder="NIP"><input id="n4" class="inp" placeholder="Jabatan"><input id="n5" class="inp" placeholder="Tingkat Biaya (mis. F)"><button class="btn" id="ad">Tambah</button></div>
