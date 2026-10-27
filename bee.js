@@ -40,7 +40,8 @@
         '<span class="periS"></span>' }
   };
   var URUT = ['peri', 'lebah', 'kupu'];
-  var pilih = 'lebah'; try { pilih = localStorage.getItem(KEY) || 'lebah'; } catch (e) {}
+  // pilihan hewan sekarang diatur Super Admin di Control Panel > Warna Tampilan (berlaku untuk semua pengguna); tanpa tombol mengambang
+  var pilih = 'lebah'; try { var lk = JSON.parse(localStorage.getItem('sppd_look') || 'null'); if (lk && lk.hewan) pilih = lk.hewan; } catch (e) {}
   if (pilih === 'on') pilih = 'lebah'; // pengaturan versi sebelumnya
   if (pilih !== 'off' && !A[pilih]) pilih = 'lebah';
 
@@ -98,7 +99,7 @@
   };
   document.addEventListener('click', tutupMenu);
   function setPilih(k) {
-    pilih = k; try { localStorage.setItem(KEY, k); } catch (e) {}
+    pilih = k;
     setBtn(); bee.classList.toggle('hide', k === 'off');
     if (k !== 'off') { gambar(); idleAt = performance.now(); loop(); }
     if (!jejak || k === 'off') butir.forEach(function (b) { b.hidup = 0; b.el.style.opacity = 0; }); // ganti hewan: bersihkan percikan
@@ -165,11 +166,16 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { last = performance.now(); loop(); } });
 
   function start() {
-    gambar(); document.body.appendChild(trail); document.body.appendChild(bee); document.body.appendChild(btn); setBtn();
+    gambar(); document.body.appendChild(trail); document.body.appendChild(bee); setBtn(); // tombol pilih hewan (#beeBtn) tidak lagi dipasang - diatur dari Control Panel
     if (reduce) { bee.classList.add('hide'); btn.style.display = 'none'; return; } // animasi dimatikan di pengaturan sistem: hewan tidak ditampilkan
     bee.classList.toggle('hide', pilih === 'off');
     bee.style.transform = 'translate(' + x + 'px,' + y + 'px)';
     loop();
   }
+  window.Hewan = { // dipakai Control Panel: Hewan.set('lebah'|'peri'|'kupu'|'off')
+    JENIS: URUT.map(function (k) { return [k, A[k].nama, A[k].ikon]; }),
+    get: function () { return pilih; },
+    set: function (k) { k = k === 'off' || A[k] ? k : 'lebah'; if (k === pilih) return; if (reduce) { pilih = k; return; } setPilih(k); }
+  };
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
