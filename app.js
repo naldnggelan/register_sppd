@@ -2,7 +2,7 @@ const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>(
 async function apiOnce_(f,a,ms){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),ms);try{const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:f,args:a}),signal:ctrl.signal});const text=await res.text();try{return JSON.parse(text)}catch(e){return{success:false,net_:true,message:'Server membalas format tidak dikenal.'}}}catch(e){return{success:false,net_:true,abort_:e.name==='AbortError',message:e.name==='AbortError'?'Server terlalu lama merespons.':'Koneksi terputus.'}}finally{clearTimeout(timer)}}
 // Pembuatan dokumen (pratinjau/PDF/Word/Excel) memang butuh waktu lebih lama: diberi batas tunggu 2 menit dan TIDAK diulang otomatis
 // saat waktu tunggu habis - sebelumnya dipotong di 12-15 detik lalu diulang dari awal sampai 4x, sehingga totalnya jauh lebih lama.
-const SLOW_FN=/^(login|boot|preview|previewST|previewSP|pdf|pdfST|pdfSP|kwiPreview|kwiPdf|kwiPdfBulan|lapPreview|lapPdf|bkuPreview|bkuPdf|exportDoc|exportRekapXlsx|exportDpaXlsx|exportBkuXlsx|exportRegisterXlsx|arsipkanTahun|rrpdPreview|rrpdPdf|rrpdGenerate|backupSekarang)$/;
+const SLOW_FN=/^(login|boot|preview|previewST|previewSP|pdf|pdfST|pdfSP|kwiPreview|kwiPdf|kwiPdfBulan|lapPreview|lapPdf|bkuPreview|bkuPdf|exportDoc|exportRekapXlsx|exportDpaXlsx|exportBkuXlsx|exportRegisterXlsx|exportRiwayatXlsx|arsipkanTahun|rrpdPreview|rrpdPdf|rrpdGenerate|backupSekarang)$/;
 const RRPD_MENU=['rrpd','request_page','Rincian Rencana Penggunaan Dana (RRPD)'];
 const api0_=async(f,...a)=>{const t0=Date.now(),slow=SLOW_FN.test(f);let r;for(let i=0;i<4;i++){if(i)await new Promise(ok=>setTimeout(ok,i*700));r=await apiOnce_(f,a,slow?120000:(i<2?12000:15000));if(r.success)break;if(!r.net_&&r.message!=='Gunakan POST untuk semua permintaan.')break;if(slow&&r.abort_)break}Perf.add(f,Date.now()-t0,r.ms,r.success);if(!r.success)throw new Error(r.message||'Terjadi kesalahan.');return r.data};
 // ---------- TURBO (gas-scale-turbo): pengukur, gabung permintaan identik, batch otomatis, pemanasan ----------
@@ -596,7 +596,7 @@ function rwData_(){const y=String(S.rwY||S.yr),bd=S.rwB||'',K=idxST_(S.kwi),M=ne
 function riwayatV(){const yrsAda=[...new Set((S.d||[]).map(r=>String(r.Berangkat||r.TglST).slice(0,4)))].filter(Boolean).sort().reverse();if(!yrsAda.includes(String(S.yr)))yrsAda.unshift(String(S.yr));
  const{y,L,nol}=rwData_(),q=(S.rwQ||'').toLowerCase(),F=q?L.filter(o=>o.nama.toLowerCase().includes(q)||o.nip.includes(q)):L,mx=Math.max(1,...L.map(o=>o.trip.length)),tot=L.reduce((a,o)=>a+o.trip.length,0),rata=L.length?tot/L.length:0;
  const tile=(i,l,v,u)=>`<div class="glass p-4"><div class="rw-tl"><span class="ms">${i}</span>${l}</div><div class="text-2xl font-bold mt-1">${v} <small class="rw-u">${u||''}</small></div></div>`;
- $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Riwayat Perjalanan Petugas</h1>
+ $('#main').innerHTML=`<div class="flex flex-wrap items-center gap-3 mb-3"><h1 class="text-2xl font-bold">Riwayat Perjalanan Petugas</h1><button class="btn2" id="rwXl"><span class="ms">download</span> Download Excel</button></div>
  <div class="glass p-4 mb-4"><div class="rw-ctl"><div><label for="rwY">Tahun</label><select id="rwY" class="inp">${yrsAda.map(v=>`<option ${v===y?'selected':''}>${v}</option>`).join('')}</select></div>
  ${sup()?`<div><label for="rwB">Bidang</label><select id="rwB" class="inp"><option value="">Semua Bidang</option>${BID.map(b=>`<option ${b===S.rwB?'selected':''}>${b}</option>`).join('')}</select></div>`:''}
  <div><label for="rwS">Urutkan</label><select id="rwS" class="inp"><option value="banyak">Perjalanan terbanyak</option><option value="sedikit">Perjalanan tersedikit</option><option value="nama">Nama (A–Z)</option></select></div>
@@ -610,6 +610,7 @@ function riwayatV(){const yrsAda=[...new Set((S.d||[]).map(r=>String(r.Berangkat
  </tbody></table></div>
  ${!S.rwB&&!q&&nol.length?`<details class="glass p-4 mt-4"><summary style="cursor:pointer;font-weight:700">Belum pernah bertugas tahun ${y} (semua bidang): ${nol.length} pegawai</summary><div class="rw-nol">${nol.map(p=>`<span>${esc(p.Nama)}</span>`).join('')}</div><p class="text-xs mt-2" style="color:var(--text-2)">Dapat dipertimbangkan untuk penugasan berikutnya agar tugas lebih merata.</p></details>`:''}`;
  $('#rwS').value=S.rwS||'banyak';
+ $('#rwXl').onclick=async()=>{const done=busy($('#rwXl'),'Membuat Excel…');try{const p=await run(()=>api('exportRiwayatXlsx',S.t,y,S.rwB||''),'Excel siap diunduh');if(p)dlXlsx(p)}finally{done()}};
  $('#rwY').onchange=e=>{S.rwY=e.target.value;riwayatV()};if($('#rwB'))$('#rwB').onchange=e=>{S.rwB=e.target.value;riwayatV()};$('#rwS').onchange=e=>{S.rwS=e.target.value;riwayatV()};
  let tq;$('#rwQ').oninput=e=>{clearTimeout(tq);tq=setTimeout(()=>{S.rwQ=e.target.value;const c=e.target.selectionStart;riwayatV();const n=$('#rwQ');n.focus();try{n.setSelectionRange(c,c)}catch(x){}},250)};
  document.querySelectorAll('[data-rw]').forEach(b=>b.onclick=()=>rwDetail(L.find(o=>o.nip===b.dataset.rw),y))}
