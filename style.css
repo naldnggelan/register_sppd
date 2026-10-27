@@ -295,3 +295,8 @@ tr:hover td.t{background:rgba(255,255,255,.04)}
 :root[data-theme=light] .hero{background:var(--lq-sheen),linear-gradient(120deg,rgba(6,182,212,.95),rgba(37,99,235,.82))!important}
 :root[data-theme=light] .hero .glass2,:root[data-theme=light] .hero .glass{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.55);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
 :root[data-theme=light] .hero .glass2 *,:root[data-theme=light] .hero .glass *{color:#fff}
+/* Perbaikan garis putih memanjang di kartu kaca: kilau dibuat bergradasi halus (tanpa batas tajam),
+   dan efek kaca dirender sebagai satu lapisan utuh supaya tidak muncul garis sambungan (terjadi di sebagian layar/zoom Windows) */
+:root[data-theme=dark]{--lq-sheen:linear-gradient(170deg,rgba(255,255,255,.10),rgba(255,255,255,.035) 45%,rgba(255,255,255,.015) 75%,rgba(255,255,255,.04))}
+:root[data-theme=light]{--lq-sheen:linear-gradient(170deg,rgba(255,255,255,.55),rgba(255,255,255,.2) 45%,rgba(255,255,255,.1) 75%,rgba(255,255,255,.25))}
+.glass,.glass2,.stat3d,.hero{transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden;isolation:isolate;background-clip:padding-box}
