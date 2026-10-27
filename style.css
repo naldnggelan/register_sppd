@@ -166,3 +166,12 @@ td.t{padding:.7rem;border-bottom:1px solid var(--line);vertical-align:top}tr:hov
 .nanim .nav.on .ms,.nanim .bitem.on .ms{display:inline-block;animation:navIco .5s cubic-bezier(.2,.8,.2,1) both}
 .nanim .bitem.on{color:var(--accent-text)}
 @media(prefers-reduced-motion:reduce){.stg,.nanim .nav.on,.nanim .nav.on .ms,.nanim .bitem.on .ms{animation:none}}
+/* ===== Animasi pesan (toast): muncul memantul, pesan error bergetar, menghilang halus ===== */
+.toast{display:flex;align-items:center;gap:.55rem;animation:toastIn .42s cubic-bezier(.2,.9,.3,1.2) both}
+.toast .ms{font-size:22px;flex:none}
+.toast.err{animation:toastIn .42s cubic-bezier(.2,.9,.3,1.2) both,toastGetar .45s .42s ease both}
+.toast.keluar{animation:toastOut .3s ease forwards}
+@keyframes toastIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}60%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes toastGetar{0%,100%{margin-left:0}20%{margin-left:-9px}40%{margin-left:8px}60%{margin-left:-6px}80%{margin-left:4px}}
+@keyframes toastOut{to{opacity:0;transform:translate(-50%,-50%) scale(.85)}}
+@media(prefers-reduced-motion:reduce){.toast,.toast.err,.toast.keluar{animation:none}}
