@@ -227,3 +227,71 @@ td.t{padding:.7rem;border-bottom:1px solid var(--line);vertical-align:top}tr:hov
 .dw-minus{background:rgba(220,38,38,.09);border-color:rgba(220,38,38,.55);animation:toastGetar .45s ease both}.dw-minus>.ms,.dw-minus .dw-s,.dw-minus>div>b{color:var(--red)}
 .dw-info{background:rgba(127,127,127,.08)}.dw-info>.ms{color:var(--text-2)}
 @media(max-width:640px){.dw-g{grid-template-columns:1fr auto}.dw-g small{grid-column:1/-1;margin-bottom:4px}}
+
+/* =====================================================================================
+   TEMA LIQUID GLASS (seluruh aplikasi + Form Login) — warna mengikuti contoh yang dipilih:
+   latar biru-gelap dengan cahaya cyan / biru / teal, kaca tebal berkilau, tombol kapsul.
+   Hanya tampilan (CSS). Untuk kembali ke tema lama: hapus blok ini sampai akhir file.
+   ===================================================================================== */
+:root{--brand:#06B6D4!important;--lq-a:#06b6d4;--lq-b:#2563eb;--lq-c:#14b8a6;--blue:#3b82f6;--teal:#14b8a6;--amber:#f59e0b;--red:#ef4444}
+/* ---------- Mode Gelap (sesuai lampiran) ---------- */
+:root[data-theme=dark]{
+ --canvas:radial-gradient(560px 560px at 4% 6%,rgba(6,182,212,.55),transparent 70%),radial-gradient(620px 560px at 100% 38%,rgba(37,99,235,.55),transparent 70%),radial-gradient(640px 520px at 45% 105%,rgba(20,184,166,.5),transparent 70%),linear-gradient(160deg,#061019,#071a24 55%,#06141c);
+ --glass:rgba(255,255,255,.075);--glass-2:rgba(16,28,40,.78);--rim:rgba(255,255,255,.2);--rim2:rgba(255,255,255,.24);--line:rgba(255,255,255,.08);
+ --text:#e8f1f5;--text-2:rgba(232,241,245,.66);--heading:#fff;--accent-text:#5ee3f2;
+ --input-bg:rgba(255,255,255,.07);--input-bd:rgba(255,255,255,.18);--btn2-bg:rgba(255,255,255,.12);--btn2-fg:#e8f1f5;--opt-bg:#0d1c27;
+ --lq-hi:rgba(255,255,255,.45);--lq-sheen:linear-gradient(140deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,.04) 32%,transparent 58%,rgba(255,255,255,.06) 100%);
+ --shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -1px 0 rgba(255,255,255,.06),inset 0 0 22px rgba(255,255,255,.05),0 18px 40px -16px rgba(0,0,0,.6)}
+/* ---------- Mode Terang (kaca terang dengan cahaya warna yang sama) ---------- */
+:root[data-theme=light]{
+ --canvas:radial-gradient(560px 560px at 4% 6%,rgba(6,182,212,.35),transparent 70%),radial-gradient(620px 560px at 100% 38%,rgba(37,99,235,.3),transparent 70%),radial-gradient(640px 520px at 45% 105%,rgba(20,184,166,.3),transparent 70%),linear-gradient(160deg,#eaf6f9,#e3f0f6);
+ --glass:rgba(255,255,255,.46);--glass-2:rgba(255,255,255,.82);--rim:rgba(255,255,255,.95);--rim2:#fff;--line:rgba(10,50,70,.09);
+ --text:#0f2a33;--text-2:rgba(15,42,51,.62);--heading:#0b3a4a;--accent-text:#0891b2;
+ --input-bg:rgba(255,255,255,.7);--input-bd:rgba(8,145,178,.25);--btn2-bg:rgba(255,255,255,.75);--btn2-fg:#0b3a4a;--opt-bg:#fff;
+ --lq-hi:#fff;--lq-sheen:linear-gradient(140deg,rgba(255,255,255,.7) 0%,rgba(255,255,255,.2) 32%,transparent 58%,rgba(255,255,255,.3) 100%);
+ --shadow:inset 0 1px 0 #fff,inset 0 0 22px rgba(255,255,255,.5),0 18px 40px -18px rgba(8,60,80,.35)}
+/* ---------- Kaca: kartu, panel, sidebar, form login, jendela ---------- */
+.glass,.stat3d{background:var(--lq-sheen),var(--glass);backdrop-filter:blur(14px) saturate(180%);-webkit-backdrop-filter:blur(14px) saturate(180%);border:1px solid var(--rim);box-shadow:var(--shadow);border-radius:1.5rem}
+.glass2{background:var(--lq-sheen),var(--glass-2);backdrop-filter:blur(24px) saturate(170%);-webkit-backdrop-filter:blur(24px) saturate(170%);border:1px solid var(--rim2);border-radius:1.6rem;box-shadow:var(--shadow),0 30px 60px -20px rgba(0,0,0,.55)}
+.stat3d{overflow:hidden}
+.stat3d::after{content:'';position:absolute;top:-60%;left:-45%;width:35%;height:220%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.16),transparent);transform:rotate(18deg);pointer-events:none;transition:left .8s cubic-bezier(.2,.8,.2,1)}
+.stat3d:hover::after{left:115%} /* kilau menyapu saat kursor lewat */
+.stat3d>*{position:relative;z-index:1}
+/* ---------- Kartu sambutan (hero) cyan → biru ---------- */
+.hero{background:var(--lq-sheen),linear-gradient(120deg,rgba(6,182,212,.72),rgba(37,99,235,.5))!important;border:1px solid rgba(255,255,255,.28);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 20px 44px -16px rgba(37,99,235,.55);backdrop-filter:blur(12px) saturate(170%);-webkit-backdrop-filter:blur(12px) saturate(170%)}
+.hero::after{background:rgba(255,255,255,.08)}
+.hero .btn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4)}
+/* ---------- Tombol kapsul ---------- */
+.btn{border-radius:999px;background:linear-gradient(180deg,#22d3ee,#06b6d4 55%,#0891b2);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 8px 18px -8px rgba(6,182,212,.7);padding:.6rem 1.15rem}
+.btn:hover{background:linear-gradient(180deg,#67e8f9,#22d3ee 55%,#06b6d4)}
+.btn2{border-radius:999px;background:var(--btn2-bg);color:var(--btn2-fg);border:1px solid var(--rim);box-shadow:inset 0 1px 0 var(--lq-hi),0 6px 14px -8px rgba(0,0,0,.45);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:.4rem .85rem}
+.btn2:hover{background:rgba(255,255,255,.2)}
+:root[data-theme=light] .btn2:hover{background:#fff}
+.btn-d{border-radius:999px;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+/* ---------- Isian ---------- */
+.inp{border-radius:.9rem;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:inset 0 1px 2px rgba(0,0,0,.18)}
+.inp:focus{border-color:#22d3ee;box-shadow:0 0 0 3px rgba(34,211,238,.25)}
+/* ---------- Menu samping & menu bawah HP ---------- */
+.nav,.navg{border-radius:999px}
+.nav.on{background-image:linear-gradient(90deg,#06b6d4,color-mix(in srgb,#06b6d4 55%,#f59e0b));box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 8px 20px -10px #06b6d4}
+.nav:hover:not(.on),.navg:hover{background:rgba(255,255,255,.08)}
+:root[data-theme=light] .nav:hover:not(.on),:root[data-theme=light] .navg:hover{background:rgba(255,255,255,.6)}
+#side{border-radius:1.6rem}
+#bnav{background:var(--lq-sheen),var(--glass-2)!important;backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%)}
+#bnav .bfab{background:radial-gradient(circle at 35% 30%,#67e8f9 0,#06b6d4 45%,#2563eb 100%)!important}
+.bsheet{background:var(--lq-sheen),var(--glass-2)}
+.bsheet .bitem2.on{background:linear-gradient(135deg,#06b6d4,#2563eb);box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
+/* ---------- Tabel, jendela, pesan ---------- */
+tr:hover td.t{background:rgba(255,255,255,.04)}
+:root[data-theme=light] tr:hover td.t{background:rgba(255,255,255,.45)}
+.modal{background:rgba(2,10,18,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.toast{border-radius:1.2rem;background:linear-gradient(180deg,#22d3ee,#0891b2);border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 16px 34px -10px rgba(0,0,0,.5)}
+.toast.err{background:linear-gradient(180deg,#f87171,#dc2626)}
+#pbar{background:linear-gradient(90deg,#22d3ee,#2563eb)}
+.itile{border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.ldx-ov,.loksucc{background:rgba(2,10,18,.4)}
+@media(prefers-reduced-motion:reduce){.stat3d::after{transition:none}}
+/* Mode Terang: kartu sambutan dibuat lebih pekat supaya teks putih, jam & tombol di dalamnya tetap jelas terbaca */
+:root[data-theme=light] .hero{background:var(--lq-sheen),linear-gradient(120deg,rgba(6,182,212,.95),rgba(37,99,235,.82))!important}
+:root[data-theme=light] .hero .glass2,:root[data-theme=light] .hero .glass{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.55);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+:root[data-theme=light] .hero .glass2 *,:root[data-theme=light] .hero .glass *{color:#fff}
