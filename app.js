@@ -200,6 +200,7 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
  <div class="flex gap-2" style="position:relative;z-index:1"><select id="yr" class="inp" style="width:auto" aria-label="Tahun">${yrs().map(y=>`<option ${y==S.yr?'selected':''}>${y}</option>`).join('')}</select>${adm()?'<button class="btn" id="nb">+ Buat Surat Tugas</button>':''}${sup()?`<button class="${S.maintenance?'btn-d':'btn2'}" id="mtBtn"><span class="ms">build</span> ${S.maintenance?'Nonaktifkan Mode Perbaikan':'Aktifkan Mode Perbaikan'}</button>`:''}</div></div>
  ${sup()&&S.maintenance?'<div class="glass p-4 mb-4" style="border:1px solid var(--red);color:var(--red);font-weight:600"><span class="ms" style="vertical-align:-4px">build</span> Mode Perbaikan sedang AKTIF — semua pengguna selain Super Admin tidak dapat menggunakan sistem sampai Anda menonaktifkannya kembali.</div>':''}
  ${sup()?'<div id="notifBox" class="mb-4"></div>':''}
+ ${adm()?'<div id="lkBox" class="mb-4"></div>':''}
  ${sup()?`<div class="glass p-4 mb-4"><b>Pesan Mode Perbaikan</b><p class="text-xs" style="color:var(--text-2)">Teks ini tampil di layar pengguna lain saat Mode Perbaikan aktif. Kosongkan lalu Simpan untuk kembali ke pesan bawaan.</p><textarea id="mtMsg" class="inp mt-2" rows="2" maxlength="300" aria-label="Pesan Mode Perbaikan">${esc(S.maintPesan)}</textarea><div class="flex justify-end mt-2"><button class="btn2" id="mtSave"><span class="ms">save</span> Simpan Pesan</button></div></div>`:''}
  ${sup()?`<div class="glass p-4 mb-4"><div class="flex flex-wrap justify-between items-center gap-3"><div><b>Register Perjalanan Dinas</b><p class="text-xs" style="color:var(--text-2)">Download seluruh Surat Tugas &amp; SPPD satu tahun (semua bidang) dalam bentuk Excel, lengkap dengan kop, kertas Legal - Landscape.</p></div><div class="flex gap-2 items-center"><select id="regYr" class="inp" style="width:auto" aria-label="Tahun Register">${yrs().map(y=>`<option ${y==S.yr?'selected':''}>${y}</option>`).join('')}</select><button class="btn" id="regDl"><span class="ms">download</span> Download Excel</button></div></div></div>`:''}
  ${sup()?'<div id="arsipBox" class="mb-4"></div>':''}
@@ -219,6 +220,7 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
   try{const ok=await run(()=>api('setMaintenance',S.t,turnOn),turnOn?'Mode Perbaikan diaktifkan':'Mode Perbaikan dinonaktifkan');if(ok!==undefined){S.maintenance=turnOn;dash()}}finally{done()}};
  if($('#mtSave'))$('#mtSave').onclick=async()=>{const done=busy($('#mtSave'),'Menyimpan…');try{const p=await run(()=>api('setMaintPesan',S.t,$('#mtMsg').value),'Pesan Mode Perbaikan disimpan');if(p!==undefined){S.maintPesan=p;$('#mtMsg').value=p}}finally{done()}};
  if($('#notifBox'))notifBox();
+ if($('#lkBox'))lkBox();
  if($('#waBox'))waBox();
  if($('#arsipBox'))arsipBox();
  if($('#backupBox'))backupBox();
@@ -411,6 +413,19 @@ async function pencairanV(){S.role==='Admin'?await pencairanAdminV():await penca
 // Admin Bidang: tombol WhatsApp di Riwayat Pengajuan (status Diajukan) + tawaran kirim otomatis setelah Ajukan Pencairan.
 // ---------- Kartu Pemberitahuan: Surat Tugas baru dari Admin Bidang (Super Admin) ----------
 const nfWaktu=w=>{const[d,j]=String(w).split(' ');return idnF(d)+' · '+String(j||'').slice(0,5).replace(':','.')};
+// ---------- Kartu Pengingat Kelengkapan (Super Admin & Admin Bidang): ST yang sudah selesai tetapi belum ada Kwitansi / Laporan ----------
+const hariIniLokal=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const selisihHari=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5);
+function lkBox(){const el=$('#lkBox');if(!el)return;const hi=hariIniLokal(),G=grupD_(),K=idxST_(S.kwi),Lp=idxST_(S.lap);
+ const L=[...G.values()].map(a=>{const x=a[0],kmb=x.Kembali||x.Berangkat;return{x,n:a.length,kmb,kw:K.has(x.NoST),lp:Lp.has(x.NoST),lalu:selisihHari(kmb,hi)}})
+  .filter(o=>o.kmb&&o.kmb<hi&&(!o.kw||!o.lp)).sort((a,b)=>b.lalu-a.lalu); // hanya ST yang perjalanannya SUDAH SELESAI (tanggal kembali sudah lewat), paling lama di atas
+ const tl=L.filter(o=>o.lalu>3).length,nk=L.filter(o=>!o.kw).length,nl=L.filter(o=>!o.lp).length;
+ el.innerHTML=`<div class="glass p-5"><div class="nf-hd"><div class="nf-ic lk-ic"><span class="ms">assignment_late</span>${L.length?`<span class="nf-cnt">${L.length}</span>`:''}</div><div><b>Pengingat Kelengkapan Dokumen</b><small class="nf-sub">${L.length?`${L.length} Surat Tugas belum lengkap · ${nk} belum Kwitansi · ${nl} belum Laporan${tl?` · <b style="color:var(--red)">${tl} lewat 3 hari</b>`:''}`:'Semua Surat Tugas yang sudah selesai telah lengkap Kwitansi & Laporannya ✓'}</small></div></div>
+ ${L.length?`<div class="nf-list">${(S.lkAll?L:L.slice(0,15)).map(o=>`<div class="nf-it ${o.lalu>3?'lk-telat':''}"><div class="nf-mid"><div class="nf-no">${esc(o.x.NoST)} ${badge(o.x.Bidang)}</div><div class="nf-mk">${esc(o.x.Maksud)} — ${esc(o.x.Tujuan)} · ${o.n} pegawai</div>
+ <div class="lk-chips"><span class="lk-c ${o.kw?'ok':'no'}"><span class="ms">${o.kw?'check_circle':'cancel'}</span> Kwitansi</span><span class="lk-c ${o.lp?'ok':'no'}"><span class="ms">${o.lp?'check_circle':'cancel'}</span> Laporan</span></div></div>
+ <div class="nf-rt">Kembali ${idn(o.kmb)}<br><b class="${o.lalu>3?'lk-merah':''}">${o.lalu} hari lalu${o.lalu>3?' · terlambat':''}</b><div class="lk-btn">${o.kw?'':`<button class="btn2" data-lkk="${esc(o.x.NoST)}"><span class="ms">receipt_long</span> Kwitansi</button>`}${o.lp?'':`<button class="btn2" data-lkl="${esc(o.x.NoST)}"><span class="ms">summarize</span> Laporan</button>`}</div></div></div>`).join('')}</div>${L.length>15?`<div style="text-align:center;margin-top:10px"><button class="btn2" id="lkMore">${S.lkAll?'Tampilkan lebih sedikit':'Tampilkan semua ('+L.length+')'}</button></div>`:''}`:''}</div>`;
+ if($('#lkMore'))$('#lkMore').onclick=()=>{S.lkAll=!S.lkAll;lkBox()};
+ el.querySelectorAll('[data-lkk]').forEach(b=>b.onclick=()=>kwiDlg(b.dataset.lkk));el.querySelectorAll('[data-lkl]').forEach(b=>b.onclick=()=>lapDlg(b.dataset.lkl))}
 async function notifBox(){const el=$('#notifBox');if(!el)return;let r;try{r=await apiQ('notifST',S.t)}catch(e){return}if(!el.isConnected)return;
  const L=r.list||[],n=L.filter(x=>x.baru).length;
  el.innerHTML=`<div class="glass p-5"><div class="nf-hd"><div class="nf-ic"><span class="ms">notifications</span>${n?`<span class="nf-cnt">${n}</span>`:''}</div><div><b>Pemberitahuan Surat Tugas</b><small class="nf-sub">${n?n+' Surat Tugas baru dari Admin Bidang':'Tidak ada Surat Tugas baru'} · 7 hari terakhir</small></div><span style="flex:1"></span>${n?'<button class="btn2" id="nfBaca"><span class="ms">done_all</span> Tandai sudah dibaca</button>':''}</div>

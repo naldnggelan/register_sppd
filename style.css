@@ -208,3 +208,12 @@ td.t{padding:.7rem;border-bottom:1px solid var(--line);vertical-align:top}tr:hov
 .rw-tag.hi{background:rgba(245,158,11,.15);color:#f59e0b}.rw-tag.lo{background:rgba(96,165,250,.15);color:#60a5fa}
 .rw-nol{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.rw-nol span{font-size:12.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:rgba(127,127,127,.08)}
 .rw-sum{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.rw-sum span{padding:5px 11px;border-radius:10px;background:rgba(127,127,127,.1);border:1px solid var(--line);font-size:13px}
+/* ===== Kartu Pengingat Kelengkapan Dokumen ===== */
+.lk-ic{background:rgba(245,158,11,.15);color:#f59e0b}
+.nf-it.lk-telat{border-color:rgba(220,38,38,.45);background:rgba(220,38,38,.06)}
+.lk-merah{color:var(--red)}
+.lk-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.lk-c{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px}
+.lk-c .ms{font-size:15px}.lk-c.ok{background:rgba(16,185,129,.14);color:#10b981}.lk-c.no{background:rgba(220,38,38,.12);color:#ef4444}
+.lk-btn{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px}.lk-btn .btn2{padding:5px 10px;font-size:12px}
+@media(max-width:640px){.lk-btn{justify-content:flex-start}}
