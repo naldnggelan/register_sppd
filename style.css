@@ -175,3 +175,24 @@ td.t{padding:.7rem;border-bottom:1px solid var(--line);vertical-align:top}tr:hov
 @keyframes toastGetar{0%,100%{margin-left:0}20%{margin-left:-9px}40%{margin-left:8px}60%{margin-left:-6px}80%{margin-left:4px}}
 @keyframes toastOut{to{opacity:0;transform:translate(-50%,-50%) scale(.85)}}
 @media(prefers-reduced-motion:reduce){.toast,.toast.err,.toast.keluar{animation:none}}
+/* ===== Kartu Pemberitahuan Surat Tugas (dashboard Super Admin) ===== */
+.nf-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nf-ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent-text) 15%,transparent);color:var(--accent-text);position:relative;flex:none}
+.nf-ic .ms{font-size:24px}
+.nf-cnt{position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;font-size:11px;font-weight:800;min-width:20px;height:20px;border-radius:10px;display:grid;place-items:center;padding:0 5px;animation:nfPulse 1.4s infinite}
+@keyframes nfPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.6)}50%{box-shadow:0 0 0 7px transparent}}
+.nf-sub{display:block;color:var(--text-2);font-size:12px}
+.nf-list{margin-top:12px;display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto}
+.nf-it{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.06)}
+.nf-it.baru{border-color:color-mix(in srgb,var(--accent-text) 55%,transparent);background:color-mix(in srgb,var(--accent-text) 9%,transparent)}
+.nf-dot{width:9px;height:9px;border-radius:50%;background:var(--accent-text);margin-top:6px;flex:none;opacity:0}
+.nf-it.baru .nf-dot{opacity:1}
+.nf-mid{flex:1;min-width:0}.nf-no{font-weight:700}
+.nf-mk{color:var(--text-2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nf-rt{text-align:right;font-size:12px;color:var(--text-2);flex:none}
+.nf-new{background:var(--accent-text);color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;letter-spacing:.5px;vertical-align:middle}
+.nf-kh{background:rgba(245,158,11,.18);color:#f59e0b;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;vertical-align:middle}
+.nf-lihat{color:var(--accent-text);font-weight:700;cursor:pointer}
+.nf-kosong{color:var(--text-2);text-align:center;padding:12px;font-size:13px}
+@media(max-width:640px){.nf-it{flex-wrap:wrap}.nf-rt{text-align:left;width:100%;padding-left:21px}.nf-mk{white-space:normal}}
+@media(prefers-reduced-motion:reduce){.nf-cnt{animation:none}}

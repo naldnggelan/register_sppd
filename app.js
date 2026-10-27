@@ -9,7 +9,7 @@ const api0_=async(f,...a)=>{const t0=Date.now(),slow=SLOW_FN.test(f);let r;for(l
 // Perf.table() / Perf.summary() di Console browser: waktu total, waktu kerja server, jaringan.
 const Perf={log:[],add(f,tot,srv,ok){this.log.push({aksi:f,total_ms:tot,server_ms:srv??'',jaringan_ms:srv!=null?tot-srv:'',ok});if(this.log.length>200)this.log.shift()},
  table(){console.table(this.log)},summary(){const g={};this.log.forEach(x=>{const o=g[x.aksi]=g[x.aksi]||{n:0,total:0,server:0};o.n++;o.total+=x.total_ms;o.server+=+x.server_ms||0});console.table(Object.keys(g).map(k=>({aksi:k,kali:g[k].n,rata_total_ms:Math.round(g[k].total/g[k].n),rata_server_ms:Math.round(g[k].server/g[k].n)})))}};
-const READ_FN=/^(boot|dpaGet|getDpa|pencairanEligible|pengajuanList|pengajuanRincian|rrpdList|waInfo|arsipInfo|logList|pegawaiList|bkuList|getCfg|publicInfo)$/;
+const READ_FN=/^(boot|dpaGet|getDpa|pencairanEligible|pengajuanList|pengajuanRincian|rrpdList|waInfo|arsipInfo|logList|pegawaiList|bkuList|getCfg|publicInfo|notifST)$/;
 const _inflight={};let _writeEpoch=0;
 const api=(f,...a)=>{ // permintaan BACA yang identik & bersamaan cukup dikirim 1x; setiap aksi TULIS menaikkan "epoch" supaya bacaan sesudahnya tidak menumpang data lama
  if(!READ_FN.test(f)){_writeEpoch++;return api0_(f,...a)}
@@ -199,6 +199,7 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
  <div class="flex items-center gap-2 flex-wrap" style="position:relative;z-index:1"><div class="glass2 px-4 py-2 flex items-center gap-3"><span class="ms" id="ci" style="font-size:34px;color:var(--accent-text)"></span><div><div id="ck" class="text-2xl font-bold" style="font-variant-numeric:tabular-nums"></div><div id="cd" class="text-xs" style="color:var(--text-2)"></div></div></div></div>
  <div class="flex gap-2" style="position:relative;z-index:1"><select id="yr" class="inp" style="width:auto" aria-label="Tahun">${yrs().map(y=>`<option ${y==S.yr?'selected':''}>${y}</option>`).join('')}</select>${adm()?'<button class="btn" id="nb">+ Buat Surat Tugas</button>':''}${sup()?`<button class="${S.maintenance?'btn-d':'btn2'}" id="mtBtn"><span class="ms">build</span> ${S.maintenance?'Nonaktifkan Mode Perbaikan':'Aktifkan Mode Perbaikan'}</button>`:''}</div></div>
  ${sup()&&S.maintenance?'<div class="glass p-4 mb-4" style="border:1px solid var(--red);color:var(--red);font-weight:600"><span class="ms" style="vertical-align:-4px">build</span> Mode Perbaikan sedang AKTIF — semua pengguna selain Super Admin tidak dapat menggunakan sistem sampai Anda menonaktifkannya kembali.</div>':''}
+ ${sup()?'<div id="notifBox" class="mb-4"></div>':''}
  ${sup()?`<div class="glass p-4 mb-4"><b>Pesan Mode Perbaikan</b><p class="text-xs" style="color:var(--text-2)">Teks ini tampil di layar pengguna lain saat Mode Perbaikan aktif. Kosongkan lalu Simpan untuk kembali ke pesan bawaan.</p><textarea id="mtMsg" class="inp mt-2" rows="2" maxlength="300" aria-label="Pesan Mode Perbaikan">${esc(S.maintPesan)}</textarea><div class="flex justify-end mt-2"><button class="btn2" id="mtSave"><span class="ms">save</span> Simpan Pesan</button></div></div>`:''}
  ${sup()?`<div class="glass p-4 mb-4"><div class="flex flex-wrap justify-between items-center gap-3"><div><b>Register Perjalanan Dinas</b><p class="text-xs" style="color:var(--text-2)">Download seluruh Surat Tugas &amp; SPPD satu tahun (semua bidang) dalam bentuk Excel, lengkap dengan kop, kertas Legal - Landscape.</p></div><div class="flex gap-2 items-center"><select id="regYr" class="inp" style="width:auto" aria-label="Tahun Register">${yrs().map(y=>`<option ${y==S.yr?'selected':''}>${y}</option>`).join('')}</select><button class="btn" id="regDl"><span class="ms">download</span> Download Excel</button></div></div></div>`:''}
  ${sup()?'<div id="arsipBox" class="mb-4"></div>':''}
@@ -216,6 +217,7 @@ function dash(){const d=S.d.filter(r=>String(r.TglST).startsWith(S.yr)),st=new S
   const done=busy($('#mtBtn'),'Memproses…');
   try{const ok=await run(()=>api('setMaintenance',S.t,turnOn),turnOn?'Mode Perbaikan diaktifkan':'Mode Perbaikan dinonaktifkan');if(ok!==undefined){S.maintenance=turnOn;dash()}}finally{done()}};
  if($('#mtSave'))$('#mtSave').onclick=async()=>{const done=busy($('#mtSave'),'Menyimpan…');try{const p=await run(()=>api('setMaintPesan',S.t,$('#mtMsg').value),'Pesan Mode Perbaikan disimpan');if(p!==undefined){S.maintPesan=p;$('#mtMsg').value=p}}finally{done()}};
+ if($('#notifBox'))notifBox();
  if($('#waBox'))waBox();
  if($('#arsipBox'))arsipBox();
  if($('#regDl'))$('#regDl').onclick=async()=>{const done=busy($('#regDl'),'Membuat Excel…');try{const p=await run(()=>api('exportRegisterXlsx',S.t,$('#regYr').value),'Excel Register siap diunduh');if(p)dlXlsx(p)}finally{done()}};
@@ -405,6 +407,14 @@ async function pencairanV(){S.role==='Admin'?await pencairanAdminV():await penca
 // ---------- Ajukan Pencairan lewat WhatsApp ----------
 // Super Admin mengatur (Dashboard): aktif/nonaktif, nomor WhatsApp Kasubag Keuangan, template pesan.
 // Admin Bidang: tombol WhatsApp di Riwayat Pengajuan (status Diajukan) + tawaran kirim otomatis setelah Ajukan Pencairan.
+// ---------- Kartu Pemberitahuan: Surat Tugas baru dari Admin Bidang (Super Admin) ----------
+const nfWaktu=w=>{const[d,j]=String(w).split(' ');return idnF(d)+' · '+String(j||'').slice(0,5).replace(':','.')};
+async function notifBox(){const el=$('#notifBox');if(!el)return;let r;try{r=await apiQ('notifST',S.t)}catch(e){return}if(!el.isConnected)return;
+ const L=r.list||[],n=L.filter(x=>x.baru).length;
+ el.innerHTML=`<div class="glass p-5"><div class="nf-hd"><div class="nf-ic"><span class="ms">notifications</span>${n?`<span class="nf-cnt">${n}</span>`:''}</div><div><b>Pemberitahuan Surat Tugas</b><small class="nf-sub">${n?n+' Surat Tugas baru dari Admin Bidang':'Tidak ada Surat Tugas baru'} · 7 hari terakhir</small></div><span style="flex:1"></span>${n?'<button class="btn2" id="nfBaca"><span class="ms">done_all</span> Tandai sudah dibaca</button>':''}</div>
+ <div class="nf-list">${L.map(x=>`<div class="nf-it ${x.baru?'baru':''}"><span class="nf-dot"></span><div class="nf-mid"><div class="nf-no">${esc(x.noST)} ${badge(x.bidang)}${x.khusus?' <span class="nf-kh">Khusus</span>':''}${x.baru?' <span class="nf-new">BARU</span>':''}</div><div class="nf-mk">${esc(x.maksud)}${x.tujuan?' — '+esc(x.tujuan):''}</div></div><div class="nf-rt">${esc(x.oleh)} · ${x.jml} pegawai<br>${nfWaktu(x.waktu)}<br><a class="nf-lihat" data-nf="${esc(x.noST)}" role="button" tabindex="0">Lihat Surat Tugas →</a></div></div>`).join('')||'<div class="nf-kosong">Belum ada Surat Tugas yang diterbitkan Admin Bidang dalam 7 hari terakhir.</div>'}</div></div>`;
+ el.querySelectorAll('[data-nf]').forEach(b=>b.onclick=()=>{if(!S.d.some(x=>x.NoST===b.dataset.nf))return toast('Surat Tugas tidak ada di data tahun ini. Tekan Update Data lalu coba lagi.',1);act('pvst',b.dataset.nf,b)});
+ const bb=$('#nfBaca');if(bb)bb.onclick=async()=>{const done=busy(bb,'Menyimpan…');try{const w=await run(()=>api('notifBaca',S.t));if(w)notifBox()}finally{done()}}}
 async function waBox(){const el=$('#waBox');if(!el)return;let c;try{c=await apiQ('waInfo',S.t)}catch(e){return}if(!el.isConnected)return;S.waCfg=c;
  el.innerHTML=`<div class="glass p-4"><div class="flex flex-wrap justify-between items-center gap-2"><b>Ajukan Pencairan lewat WhatsApp</b><label for="waOn" style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--text)"><input type="checkbox" id="waOn" ${c.aktif?'checked':''}> Aktifkan</label></div>
  <p class="text-xs" style="color:var(--text-2)">Bila aktif, Admin Bidang dapat mengirim rincian Pengajuan Pencairan langsung ke WhatsApp Kasubag Keuangan dari menu Pengajuan Pencairan.</p>
