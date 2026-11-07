@@ -297,7 +297,7 @@ function ttdbDlg(v,key){const SEK=['II','III','IV','V'],d=JSON.parse(JSON.string
  m.querySelectorAll('[data-k]').forEach(e=>e.oninput=e.onchange=()=>{if(e.dataset.f==='an')e.closest('.tb-sek').querySelector('.tb-j2').style.display=e.checked?'':'none';baca();gambar()});
  m.querySelectorAll('.tb-mode button').forEach(b=>b.onclick=()=>{mode=b.dataset.m;m.querySelectorAll('.tb-mode button').forEach(x=>x.classList.toggle('on',x===b));gambar()});
  m.querySelector('#tbs').onclick=async()=>{baca();const b=m.querySelector('#tbs'),done=busy(b,'Menyimpan…');try{const r=await run(()=>api('ttdbSave',S.t,key,d),'TTD Belakang tersimpan ✓');if(r)v.data=r}finally{done()}};
- m.querySelector('#tbx').onclick=async()=>{baca();const b=m.querySelector('#tbx'),done=busy(b,'Membuat Excel…');try{const p=await run(()=>api('xlsSPB',S.t,key,d),'Excel Belakang SPPD siap diunduh');if(p)dlXlsx(p)}finally{done()}};
+ m.querySelector('#tbx').onclick=async()=>{baca();const b=m.querySelector('#tbx'),done=busy(b,'Membuat Excel…');try{const p=await run(()=>api('xlsSPB',S.t,key,d,mode==='isian'),mode==='isian'?'Excel isian tanda tangan siap diunduh':'Excel Belakang SPPD siap diunduh');if(p)dlXlsx(p)}finally{done()}};
  m.querySelector('#tbp').onclick=()=>{try{const w=fr.contentWindow;try{w.document.documentElement.style.zoom=''}catch(e){}w.focus();w.print();setTimeout(pas,500)}catch(e){toast('Perangkat ini tidak mendukung cetak langsung.',1)}};
  m.querySelector('#tbc').onclick=()=>{removeEventListener('resize',pas);m.remove()}}
 function prev(v,key,fn){const m=document.createElement('div');m.className='modal pvm';
