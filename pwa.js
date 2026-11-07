@@ -13,6 +13,26 @@
     + '#pwaIos div{max-width:420px;width:100%;background:rgba(14,26,38,.96);color:#e8f1f5;border:1px solid rgba(255,255,255,.2);border-radius:1.2rem;padding:16px 18px;font:14px/1.5 system-ui,Segoe UI,Arial,sans-serif}#pwaIos b{color:#67e8f9}#pwaIos button{margin-top:10px;width:100%;padding:.6rem;border-radius:999px;border:0;font-weight:700;background:#0891b2;color:#fff}'
     + '@media print{#pwaBtn,#pwaIos{display:none!important}}';
   document.head.appendChild(css);
+  // Bilah judul disembunyikan (tombol ⌃ di jendela aplikasi terinstal = mode window-controls-overlay):
+  // strip tipis transparan yang bisa ditarik untuk menggeser jendela + isi halaman turun sedikit supaya tidak tertutup tombol – ☐ ✕.
+  // Hanya aktif di mode itu; di browser biasa, HP, atau saat bilah judul tampil, tampilan tidak berubah.
+  const H = 'env(titlebar-area-height,33px)';
+  const wco = document.createElement('style'); wco.id = 'pwaWcoCss';
+  wco.textContent = '#pwaStrip{display:none}'
+    + '@media (display-mode: window-controls-overlay){'
+    + '#pwaStrip{display:flex;position:fixed;left:env(titlebar-area-x,0);top:env(titlebar-area-y,0);width:env(titlebar-area-width,calc(100% - 140px));height:' + H + ';z-index:120;align-items:center;gap:8px;padding-left:12px;'
+    + 'font:600 12.5px/1 system-ui,Segoe UI,Arial,sans-serif;color:var(--text,#e8f1f5);opacity:.85;-webkit-app-region:drag;app-region:drag;user-select:none;'
+    + 'background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08)}'
+    + '#pwaStrip img{width:16px;height:16px}'
+    + 'body{padding-top:' + H + '!important}'
+    + '#th[style*="position:fixed"]{top:calc(12px + ' + H + ')!important}'
+    + '#side{top:calc(12px + ' + H + ')!important;height:calc(100vh - 24px - ' + H + ')!important}'
+    + '.modal,.ldx-ov,.loksucc,.bscrim{top:' + H + '!important}'
+    + '#pbar{top:' + H + '!important}'
+    + '}';
+  document.head.appendChild(wco);
+  const strip = () => { if (document.getElementById('pwaStrip') || !document.body) return; const d = document.createElement('div'); d.id = 'pwaStrip'; d.innerHTML = '<img src="icons/v2-icon-48.png" alt="">REGISTER SPPD'; document.body.appendChild(d); };
+  if (document.body) strip(); else addEventListener('DOMContentLoaded', strip);
   const tampil = () => {
     if (btn || terinstal() || ambil('pwa_tutup') === '1') return;
     btn = document.createElement('button'); btn.id = 'pwaBtn'; btn.type = 'button'; btn.title = 'Instal REGISTER SPPD di perangkat ini';
