@@ -1,8 +1,8 @@
 // Service worker REGISTER SPPD - supaya aplikasi bisa diinstal di PC & HP.
 // Strategi "jaringan dulu": selalu mengambil file terbaru dari server (hasil DEPLOY langsung terpakai),
 // salinan cadangan hanya dipakai bila internet putus. Permintaan ke server Google Apps Script TIDAK disentuh.
-const CACHE = 'register-sppd-v1';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'partikel.js', 'bee.js', 'vendor/fonts.css', 'vendor/tailwind.css', 'vendor/chart.umd.min.js', 'icons/icon-192.png'];
+const CACHE = 'register-sppd-v2';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'partikel.js', 'bee.js', 'vendor/fonts.css', 'vendor/tailwind.css', 'vendor/chart.umd.min.js', 'icons/v2-icon-192.png'];
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {})); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
