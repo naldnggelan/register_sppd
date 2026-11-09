@@ -352,3 +352,5 @@ tr:hover td.t{background:rgba(255,255,255,.04)}
 .tb-mode button{border:0;border-radius:999px;padding:.35rem .8rem;font-weight:700;font-size:12px;color:var(--text);background:transparent;cursor:pointer}
 .tb-mode button.on{background:var(--brand);color:#fff}
 @media(max-width:900px){.tb-isi{grid-template-columns:1fr;overflow:auto}.tb-form{overflow:visible}#tbf{min-height:520px!important}}
+/* ---------- DPA: kartu per bidang tidak melebar di tablet/laptop kecil (700-1180 px) - tabel di dalamnya tetap bisa digeser ---------- */
+[data-card]{min-width:0}
