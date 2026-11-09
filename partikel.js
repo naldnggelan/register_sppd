@@ -153,5 +153,5 @@
     halaman: function (h) { hal = h || 'login'; segarkan(); },
     warna: function () { PAL = palet(); if (aktif) isi(); } // panggil setelah warna tema berubah
   };
-  try { var s = JSON.parse(localStorage.getItem('sppd_look') || 'null'); if (s && s.partikel) window.Partikel.set(s.partikel); } catch (e) {}
+  try { var s = JSON.parse(localStorage.getItem('sppd_look') || 'null'); if (s && s.partikel && !(s.animHp === '1' && (matchMedia('(hover:none) and (pointer:coarse)').matches||/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)))) window.Partikel.set(s.partikel); } catch (e) {}
 })();

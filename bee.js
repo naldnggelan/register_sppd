@@ -41,7 +41,7 @@
   };
   var URUT = ['peri', 'lebah', 'kupu'];
   // pilihan hewan sekarang diatur Super Admin di Control Panel > Warna Tampilan (berlaku untuk semua pengguna); tanpa tombol mengambang
-  var pilih = 'lebah'; try { var lk = JSON.parse(localStorage.getItem('sppd_look') || 'null'); if (lk && lk.hewan) pilih = lk.hewan; } catch (e) {}
+  var pilih = 'lebah'; try { var lk = JSON.parse(localStorage.getItem('sppd_look') || 'null'); if (lk && lk.hewan) pilih = lk.hewan; if (lk && lk.animHp === '1' && (matchMedia('(hover:none) and (pointer:coarse)').matches||/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent))) pilih = 'off'; } catch (e) {}
   if (pilih === 'on') pilih = 'lebah'; // pengaturan versi sebelumnya
   if (pilih !== 'off' && !A[pilih]) pilih = 'lebah';
 
