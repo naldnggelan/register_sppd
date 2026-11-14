@@ -354,3 +354,12 @@ tr:hover td.t{background:rgba(255,255,255,.04)}
 @media(max-width:900px){.tb-isi{grid-template-columns:1fr;overflow:auto}.tb-form{overflow:visible}#tbf{min-height:520px!important}}
 /* ---------- DPA: kartu per bidang tidak melebar di tablet/laptop kecil (700-1180 px) - tabel di dalamnya tetap bisa digeser ---------- */
 [data-card]{min-width:0}
+/* ---------- HP/tablet: target sentuh minimal ~32px (kotak centang, nama pegawai Riwayat, ikon mata) - PC tidak berubah ---------- */
+@media(hover:none) and (pointer:coarse),(max-width:767px){
+ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-width:20px}
+ .rw-nm{display:inline-block;padding:7px 0;min-height:32px;box-sizing:border-box}
+ #uv{min-width:36px;min-height:36px}
+}
+
+/* Kartu DPA "Pimpinan" (Perjalanan Pimpinan) */
+:root{--b-pimpinan:#8b5cf6}
