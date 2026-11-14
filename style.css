@@ -363,3 +363,6 @@ tr:hover td.t{background:rgba(255,255,255,.04)}
 
 /* Kartu DPA "Pimpinan" (Perjalanan Pimpinan) */
 :root{--b-pimpinan:#8b5cf6}
+/* Daftar Surat Tugas Pimpinan: tombol aksi rapi & terlipat di HP */
+.pimAks{display:flex;flex-wrap:wrap;gap:.35rem}
+@media(max-width:640px){table.dpaSubTbl td:last-child .pimAks{justify-content:flex-start;width:100%}}

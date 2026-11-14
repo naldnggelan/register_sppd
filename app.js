@@ -176,7 +176,7 @@ ${mi.length>1?`<nav id="bnav">${mi.slice(0,2).map(m=>bitemHtml(m)).join('')}<div
  document.querySelectorAll('.nav,.bitem').forEach(n=>n.onclick=()=>{if(n.classList.contains('on'))return;S.view=n.dataset.v;S.page=1;shell()});
  document.querySelectorAll('.navg').forEach(g=>g.onclick=()=>{const w=g.parentElement,o=!w.classList.contains('open');w.classList.toggle('open',o);g.setAttribute('aria-expanded',o);store.set('sppd_grp_'+g.dataset.g,o?'1':'0')});
  $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#rf').onclick=()=>refresh(false);stamp();onlineDot();
- ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,pencairan:pencairanV,rrpd:rrpdV,lap:lapV,riwayat:riwayatV,tampilan:tampilanV,pjb:pjbV,bku:bkuV,log:logV,pim:pimV})[S.view]();animMenu_();if(!S._pf){S._pf=1;setTimeout(prefetchKeu,1500)}}
+ ({dash,rekap,input:inputV,pegawai:pegV,users:usrV,cfg:cfgV,kwi:kwiV,dpa:dpaV,pencairan:pencairanV,rrpd:rrpdV,lap:lapV,riwayat:riwayatV,tampilan:tampilanV,pjb:pjbV,bku:bkuV,log:logV,pim:pimV})[S.view]();animMenu_();if(!S._pf){S._pf=1;setTimeout(prefetchKeu,1500);setTimeout(prefetchPim_,2500)}}
 // ---------- Animasi pindah menu (Opsi 3 - Kartu Bertahap) + warna menu yang ditekan ----------
 // Hanya tampilan: judul, kartu & baris tabel muncul berurutan; menu yang ditekan berganti warna. Tidak dijalankan saat data diperbarui di belakang layar.
 function animMenu_(){const pindah=S._lastView!==S.view;S._lastView=S.view;if(!pindah)return;
@@ -899,13 +899,23 @@ async function pimCfgPasang_(){if(!$('#pimBox'))return;
  const c=S.pimCfg||await api('pimCfgGet',S.t).catch(()=>null);if(!c||!$('#pimBox'))return;S.pimCfg=c;
  $('#pimBox').innerHTML=`<div class="glass p-5 mb-4"><b>Surat Tugas Pimpinan (Kepala Satuan)</b><p class="text-xs" style="color:var(--text-2)">Kop Sekretariat Daerah dan data Asisten penanda tangan untuk menu <b>Surat Tugas Pimpinan</b>. Bila Asisten berganti, cukup ubah di sini. Nomor surat dicetak dengan bagian urut dikosongkan (ditulis tangan setelah dicetak).</p><div class="grid gap-3 md:grid-cols-2 mt-1">${PIM_K.map(x=>`<div><label for="${x[0]}">${x[1]}</label><input id="${x[0]}" class="inp" value="${esc(c[x[0]])}"></div>`).join('')}</div></div><button class="btn" id="pimSj">Simpan Pengaturan Surat Tugas Pimpinan</button>`;
  $('#pimSj').onclick=async()=>{const o={};PIM_K.forEach(x=>o[x[0]]=$('#'+x[0]).value);const r=await run(()=>api('pimCfgSave',S.t,o),'Pengaturan Surat Tugas Pimpinan disimpan');if(r)S.pimCfg=r}}
+const pimRow_=(x,KS,LS)=>`<tr><td class="t" data-label="Tgl Surat">${idnF(x.TglST)}</td><td class="t" data-label="Tujuan">${esc(x.Tujuan)}</td><td class="t" data-label="Maksud">${esc(x.Maksud)}</td><td class="t" data-label="Berangkat">${idnF(x.Berangkat)}</td><td class="t" data-label="Lama">${x.Lama} hari</td><td class="t" data-label="Dibuat">${esc(x.Bidang||'Super Admin')}</td><td class="t" style="white-space:normal"><div class="pimAks"><button class="btn2" data-pm="st" data-id="${esc(x.ID)}" title="Cetak Surat Tugas"><span class="ms">description</span> ST</button> <button class="btn2" data-pm="sp" data-id="${esc(x.ID)}" title="Cetak SPPD"><span class="ms">flight_takeoff</span> SPPD</button> <button class="btn2" data-pm="sb" data-id="${esc(x.ID)}" title="Cetak Belakang SPPD"><span class="ms">flip_to_back</span> Belakang</button> <button class="btn2" data-pm="kw" data-id="${esc(x.ID)}" title="Data & cetak Kwitansi"><span class="ms">receipt_long</span> Kwitansi${KS.has('PIM:'+x.ID)?' ✓':''}</button> <button class="btn2" data-pm="lp" data-id="${esc(x.ID)}" title="Isi & cetak Laporan Perjalanan Dinas"><span class="ms">summarize</span> Laporan${LS.has('PIM:'+x.ID)?' ✓':''}</button> ${sup()||x.Bidang===S.bidang?`<button class="btn2" data-pm="ed" data-id="${esc(x.ID)}" title="Ubah"><span class="ms">edit</span></button> <button class="btn2" data-pm="del" data-id="${esc(x.ID)}" title="Hapus"><span class="ms">delete</span></button>`:''}</div></td></tr>`;
+function pimTbody_(L){const KS=new Set(S.kwi.map(q=>q.NoST)),LS=new Set(S.lap.map(q=>q.NoST)); // indeks sekali, tidak dicari ulang per baris
+ return L.length?L.map(x=>pimRow_(x,KS,LS)).join(''):'<tr><td class="t" colspan="7" style="color:var(--text-2)">Belum ada Surat Tugas Pimpinan.</td></tr>'}
+async function pimAksi_(b){const id=b.dataset.id,a=b.dataset.pm;
+ if(a==='ed'){S.pimEdit=id;pimV();scrollTo(0,0)}
+ else if(a==='kw')kwiDlg('PIM:'+id)
+ else if(a==='lp')lapDlg('PIM:'+id)
+ else if(a==='del'){if(await confirmDlg('Hapus Surat Tugas Pimpinan ini?\n\nSurat Tugas, SPPD, Kwitansi, dan Laporannya ikut terhapus.','Hapus'))if(await run(async()=>{await api('pimDel',S.t,id);return true},'Surat Tugas Pimpinan dihapus')){S._pimL=(S._pimL||[]).filter(x=>x.ID!==id);pimV()}}
+ else if(a==='sb'){const done=busy(b,'Menyiapkan…'),ov=ldxOverlay('Cetak Belakang SPPD…',['Mengambil data…','Menyusun dokumen…','Hampir selesai…'],'Belakang SPPD siap ✓');let h;try{h=await run(()=>api('pimPreviewSPB',S.t,id));if(h)prev(h,'PIM:'+id,'pdfSPB')}finally{ov(!!h);done()}}
+ else{const st=a==='st',done=busy(b,'Menyiapkan…'),ov=ldxOverlay(st?'Cetak Surat Tugas…':'Cetak SPPD…',['Mengambil data…','Menyusun dokumen…','Memasang kop & tanda tangan…','Hampir selesai…'],'Dokumen siap ✓');let h;try{h=await run(()=>api(st?'pimPreviewST':'pimPreviewSP',S.t,id));if(h)prev(h,id,st?'pimPdfST':'pimPdfSP')}finally{ov(!!h);done()}}}
+async function prefetchPim_(){if(S._pimL||!menu().some(m=>m[0]==='pim'))return;try{const L=await api('pimList',S.t);if(!S._pimL)S._pimL=L}catch(e){}} // muat daftar di belakang layar supaya menu Pimpinan langsung tampil
 async function pimV(){
  const m=$('#main');if(!S.pimEdit)S.pimEdit=null;
- m.innerHTML='<h1 class="text-2xl font-bold mb-3">Surat Tugas Pimpinan</h1><div class="glass p-5" style="color:var(--text-2)"><span class="spin"></span> Memuat…</div>';
- const L=await run(()=>api('pimList',S.t));if(!L||S.view!=='pim')return;
- S._pimL=L;const ed=S.pimEdit?L.find(x=>x.ID===S.pimEdit):null;if(!ed)S.pimEdit=null;
- const v=ed||{TglST:today(),Berangkat:today(),Lama:1,Tujuan:'',Maksud:'',Dasar:''};
- m.innerHTML=`<h1 class="text-2xl font-bold mb-1">Surat Tugas Pimpinan</h1>
+ const tampil=L=>{ // gambar halaman dari daftar L (dari memori = seketika)
+  S._pimL=L;const ed=S.pimEdit?L.find(x=>x.ID===S.pimEdit):null;if(!ed)S.pimEdit=null;
+  const v=ed||{TglST:today(),Berangkat:today(),Lama:1,Tujuan:'',Maksud:'',Dasar:''};
+  m.innerHTML=`<h1 class="text-2xl font-bold mb-1">Surat Tugas Pimpinan</h1>
  <p class="text-xs mb-3" style="color:var(--text-2)">Surat Tugas &amp; SPPD untuk <b>Kepala Satuan</b> dengan kop Sekretariat Daerah dan penanda tangan Asisten. Nomor tidak memakai urutan otomatis: bagian urut dikosongkan untuk ditulis tangan, jadi tidak mengganggu nomor Surat Tugas &amp; SPPD petugas biasa.</p>
  <div class="glass p-5 mb-4"><b>${ed?'Ubah Surat Tugas Pimpinan':'Surat Tugas Pimpinan Baru'}</b>
  <div class="grid gap-3 md:grid-cols-3 mt-2"><div><label for="pm1">Tanggal Surat Tugas</label><input id="pm1" type="date" class="inp" value="${esc(v.TglST)}"></div><div><label for="pm2">Tanggal Berangkat</label><input id="pm2" type="date" class="inp" value="${esc(v.Berangkat)}"></div><div><label for="pm3">Lama Bertugas (hari)</label><input id="pm3" type="number" min="1" max="60" class="inp" value="${esc(v.Lama)}"></div>
@@ -913,18 +923,20 @@ async function pimV(){
  <label for="pm5">Maksud / Untuk</label><textarea id="pm5" rows="3" class="inp">${esc(v.Maksud)}</textarea>
  <label for="pm6">Dasar <small style="font-weight:400;color:var(--text-2)">(opsional, satu dasar per baris)</small></label><textarea id="pm6" rows="3" class="inp">${esc(v.Dasar)}</textarea>
  <div class="flex gap-2 flex-wrap mt-3"><button class="btn" id="pmSave"><span class="ms">save</span> ${ed?'Simpan Perubahan':'Simpan & Terbitkan (ST + SPPD)'}</button>${ed?'<button class="btn2" id="pmBatal">Batal Ubah</button>':''}</div></div>
- <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:900px"><thead><tr><th>Tgl Surat</th><th>Tujuan</th><th>Maksud</th><th>Berangkat</th><th>Lama</th><th>Dibuat</th><th>Aksi</th></tr></thead><tbody>${L.length?L.map(x=>`<tr><td>${idnF(x.TglST)}</td><td>${esc(x.Tujuan)}</td><td>${esc(x.Maksud)}</td><td>${idnF(x.Berangkat)}</td><td>${x.Lama} hari</td><td>${esc(x.Bidang||'Super Admin')}</td><td style="white-space:nowrap"><button class="btn2" data-pm="st" data-id="${esc(x.ID)}" title="Cetak Surat Tugas"><span class="ms">description</span> ST</button> <button class="btn2" data-pm="sp" data-id="${esc(x.ID)}" title="Cetak SPPD"><span class="ms">flight_takeoff</span> SPPD</button> <button class="btn2" data-pm="sb" data-id="${esc(x.ID)}" title="Cetak Belakang SPPD"><span class="ms">flip_to_back</span> Belakang</button> <button class="btn2" data-pm="kw" data-id="${esc(x.ID)}" title="Data & cetak Kwitansi"><span class="ms">receipt_long</span> Kwitansi${S.kwi.some(q=>q.NoST==='PIM:'+x.ID)?' ✓':''}</button> <button class="btn2" data-pm="lp" data-id="${esc(x.ID)}" title="Isi & cetak Laporan Perjalanan Dinas"><span class="ms">summarize</span> Laporan${S.lap.some(q=>q.NoST==='PIM:'+x.ID)?' ✓':''}</button> ${sup()||x.Bidang===S.bidang?`<button class="btn2" data-pm="ed" data-id="${esc(x.ID)}" title="Ubah"><span class="ms">edit</span></button> <button class="btn2" data-pm="del" data-id="${esc(x.ID)}" title="Hapus"><span class="ms">delete</span></button>`:''}</td></tr>`).join(''):'<tr><td colspan="7" style="color:var(--text-2)">Belum ada Surat Tugas Pimpinan.</td></tr>'}</tbody></table></div>`;
- $('#pmSave').onclick=async()=>{const f={id:ed?ed.ID:'',tgl:$('#pm1').value,berangkat:$('#pm2').value,lama:$('#pm3').value,tujuan:$('#pm4').value,maksud:$('#pm5').value,dasar:$('#pm6').value};
-  if(!f.tgl||!f.berangkat)return toast('Tanggal Surat Tugas dan Tanggal Berangkat wajib diisi.',1);if(!f.tujuan.trim()||!f.maksud.trim())return toast('Maksud dan Tempat Tujuan wajib diisi.',1);
-  const done=busy($('#pmSave'),'Menyimpan…');try{const r=await run(()=>api('pimSave',S.t,f),ed?'Perubahan disimpan':'Surat Tugas Pimpinan diterbitkan');if(r){S.pimEdit=null;pimV()}}finally{done()}};
- if($('#pmBatal'))$('#pmBatal').onclick=()=>{S.pimEdit=null;pimV()};
- m.querySelectorAll('[data-pm]').forEach(b=>b.onclick=async()=>{const id=b.dataset.id,a=b.dataset.pm;
-  if(a==='ed'){S.pimEdit=id;pimV();scrollTo(0,0)}
-  else if(a==='kw')kwiDlg('PIM:'+id)
-  else if(a==='lp')lapDlg('PIM:'+id)
-  else if(a==='del'){if(await confirmDlg('Hapus Surat Tugas Pimpinan ini?\n\nSurat Tugas, SPPD, Kwitansi, dan Laporannya ikut terhapus.','Hapus'))if(await run(async()=>{await api('pimDel',S.t,id);return true},'Surat Tugas Pimpinan dihapus'))pimV()}
-  else if(a==='sb'){const done=busy(b,'Menyiapkan…'),ov=ldxOverlay('Cetak Belakang SPPD…',['Mengambil data…','Menyusun dokumen…','Hampir selesai…'],'Belakang SPPD siap ✓');let h;try{h=await run(()=>api('pimPreviewSPB',S.t,id));if(h)prev(h,'PIM:'+id,'pdfSPB')}finally{ov(!!h);done()}}
-  else{const st=a==='st',done=busy(b,'Menyiapkan…'),ov=ldxOverlay(st?'Cetak Surat Tugas…':'Cetak SPPD…',['Mengambil data…','Menyusun dokumen…','Memasang kop & tanda tangan…','Hampir selesai…'],'Dokumen siap ✓');let h;try{h=await run(()=>api(st?'pimPreviewST':'pimPreviewSP',S.t,id));if(h)prev(h,id,st?'pimPdfST':'pimPdfSP')}finally{ov(!!h);done()}}})}
+ <div class="glass p-2 overflow-x-auto"><table class="w-full dpaSubTbl" style="min-width:900px"><thead><tr><th>Tgl Surat</th><th>Tujuan</th><th>Maksud</th><th>Berangkat</th><th>Lama</th><th>Dibuat</th><th>Aksi</th></tr></thead><tbody id="pmBody">${pimTbody_(L)}</tbody></table></div>`;
+  $('#pmSave').onclick=async()=>{const f={id:ed?ed.ID:'',tgl:$('#pm1').value,berangkat:$('#pm2').value,lama:$('#pm3').value,tujuan:$('#pm4').value,maksud:$('#pm5').value,dasar:$('#pm6').value};
+   if(!f.tgl||!f.berangkat)return toast('Tanggal Surat Tugas dan Tanggal Berangkat wajib diisi.',1);if(!f.tujuan.trim()||!f.maksud.trim())return toast('Maksud dan Tempat Tujuan wajib diisi.',1);
+   const done=busy($('#pmSave'),'Menyimpan…');try{const r=await run(()=>api('pimSave',S.t,f),ed?'Perubahan disimpan':'Surat Tugas Pimpinan diterbitkan');
+    if(r){ // daftar langsung diperbarui di layar (tanpa menunggu muat ulang), lalu dicocokkan dengan server di belakang layar
+     const baru={ID:r.id,TglST:f.tgl,Berangkat:f.berangkat,Lama:Math.floor(+f.lama),Tujuan:f.tujuan.trim(),Maksud:f.maksud.trim(),Dasar:f.dasar.trim()};
+     S._pimL=ed?L.map(x=>x.ID===ed.ID?Object.assign({},x,baru):x):[Object.assign(baru,{Bidang:r.bidang||'',Dibuat:r.dibuat||''})].concat(L);S.pimEdit=null;pimV()}}finally{done()}};
+  if($('#pmBatal'))$('#pmBatal').onclick=()=>{S.pimEdit=null;pimV()};
+  $('#pmBody').onclick=e=>{const b=e.target.closest('[data-pm]');if(b&&!b.disabled)pimAksi_(b)}}; // satu pendengar untuk semua tombol baris
+ if(S._pimL){tampil(S._pimL)} // sudah pernah dimuat: tampil seketika, lalu segarkan diam-diam
+ else{m.innerHTML='<h1 class="text-2xl font-bold mb-3">Surat Tugas Pimpinan</h1><div class="glass p-5" style="color:var(--text-2)"><span class="spin"></span> Memuat…</div>';
+  const L=await run(()=>api('pimList',S.t));if(!L||S.view!=='pim')return;tampil(L);return}
+ try{const F=await api('pimList',S.t);if(S.view!=='pim'||!$('#pmBody'))return;
+  if(JSON.stringify(F)!==JSON.stringify(S._pimL)){S._pimL=F;$('#pmBody').innerHTML=pimTbody_(F)}}catch(e){}} // hanya isi tabel yang diganti, isian formulir tidak terganggu
 function cfgR(c){
  const num=(k,l)=>`<div><label for="${k}">${l}</label><input id="${k}" type="number" min="0" max="60" class="inp" value="${c[k]}"></div>`;
  const blok=(p,t)=>`<div class="glass p-5 mb-4"><b>${t}</b><div class="grid gap-3 grid-cols-2 md:grid-cols-5">${num('UKURAN_'+p,'Ukuran huruf (pt)')}${num(p+'_ATAS','Margin atas (mm)')}${num(p+'_BAWAH','Margin bawah (mm)')}${num(p+'_KIRI','Margin kiri (mm)')}${num(p+'_KANAN','Margin kanan (mm)')}</div></div>`;
