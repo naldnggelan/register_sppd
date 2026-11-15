@@ -43,7 +43,18 @@ const badge=b=>`<span class="bd" style="background:color-mix(in srgb,var(--b-${(
 const S0=()=>({t:'',role:'',nama:'',d:[],pg:[],us:[],jadwal:[],bidang:'',lap:[],wil:[],foto:'',kwi:[],tarif:{luar:170000,dalam:70000,luarDaerah:450000},logo:'',footer:'',view:'dash',page:1,q:'',fb:'',fm:'',yr:String(new Date().getFullYear()),pick:[],cfgCache:null,dpaCache:{},bkuCache:null,pegCache:null,maintenance:false});
 let S=S0(),charts=[];
 const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
-async function keluarTanya(){if(await confirmDlg('Anda akan keluar dari akun ini.\nData yang sudah tersimpan tidak akan hilang.','Keluar dari aplikasi?'))logout()} // pesan konfirmasi hanya untuk tombol Keluar; keluar otomatis (sesi berakhir) tetap tanpa pesan
+function keluarTanya(){ // pesan konfirmasi Keluar: gembok menutup, lalu layar perpisahan "Anda telah keluar" (keluar otomatis karena sesi berakhir tetap tanpa pesan)
+ if(document.querySelector('.kxm'))return;
+ const m=document.createElement('div');m.className='modal kxm';
+ m.innerHTML=`<div class="glass2 kx p-5" style="max-width:380px;width:100%;text-align:center"><svg class="kxic" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="kxshk"><path d="M8 11V7a4 4 0 0 1 8 0v4"/></g><rect x="5" y="11" width="14" height="10" rx="2"/></svg><b class="text-lg" style="display:block;margin-top:.5rem">Keluar dari aplikasi?</b><p class="text-sm mt-1" style="color:var(--text-2);white-space:pre-line">Anda akan keluar dari akun ini.\nData yang sudah tersimpan tidak akan hilang.</p><div class="flex justify-center gap-2 mt-4"><button class="btn2" id="kxNo">Batal</button><button class="btn-d" id="kxYes">Keluar</button></div></div>`;
+ document.body.appendChild(m);
+ const tutup=()=>m.remove();
+ m.querySelector('#kxNo').onclick=tutup;m.onclick=e=>{if(e.target===m)tutup()};
+ m.querySelector('#kxYes').onclick=()=>{tutup();
+  const b=document.createElement('div');b.className='kxbye kx';
+  b.innerHTML='<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="#22c55e"/><path class="kxck" stroke="#22c55e" d="M7.5 12.5l3 3 6-6.5"/></svg><b class="kxt1">Anda telah keluar</b><small>Data Anda aman</small>';
+  document.body.appendChild(b);logout();
+  setTimeout(()=>{b.classList.add('out');setTimeout(()=>b.remove(),450)},1700)}}
 async function logout(){const t=S.t;clearInterval(window._pv);store.del('sppd_t');store.del('sppd_v');store.del('sppd_boot');charts.forEach(c=>c.destroy());charts=[];document.querySelectorAll('.modal').forEach(m=>m.remove());S=S0();loginView();if(t)api('logout',t).catch(()=>{})}
 const BIDX=()=>sup()?BID:[S.bidang],adm=()=>S.role==='Admin'||S.role==='Super Admin',sup=()=>S.role==='Super Admin',dpaRO=()=>['Kasubag Keuangan','KABID','KASI','SEKRETARIS'].includes(S.role); // Kasubag Keuangan: DPA hanya bisa dilihat, tidak bisa diubah
 const dl=(u,n)=>{const A=document.createElement('a');A.href=u;A.download=n;document.body.appendChild(A);A.click();A.remove()};
@@ -51,7 +62,7 @@ const ava=(u,n,s)=>u?`<img src="${esc(u)}" alt="Foto ${esc(n)}" style="width:${s
 function setTheme(t,save){document.documentElement.dataset.theme=t;const i=$('#thi');if(i)i.textContent=t==='dark'?'light_mode':'dark_mode';if(save)try{localStorage.setItem('theme',t)}catch(e){}}
 let _t0;try{_t0=localStorage.getItem('theme')}catch(e){}
 setTheme(_t0||'dark');
-function look(r){if(!r)return;const s=document.documentElement.style;s.removeProperty('--bg-img');document.documentElement.classList.remove('hasbg');if(/^#[0-9a-f]{3,8}$/i.test(r.warna||''))s.setProperty('--brand',r.warna);['--lq-a','--lq-b','--lq-c'].forEach((k,i)=>{const w=(r.tema||[])[i];if(/^#[0-9a-f]{6}$/i.test(w||''))s.setProperty(k,w);else s.removeProperty(k)});const hpMati=r.animHp==='1'&&(matchMedia('(hover:none) and (pointer:coarse)').matches||/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent));if(window.Partikel)Partikel.set(hpMati?'':(r.partikel||''));if(window.Hewan)Hewan.set(hpMati?'off':(r.hewan||'lebah'));if(/^https:\/\//.test(r.bg||'')){s.setProperty('--bg-img','url("'+r.bg+'")');document.documentElement.classList.add('hasbg')}}
+function look(r){if(!r)return;const s=document.documentElement.style;s.removeProperty('--bg-img');document.documentElement.classList.remove('hasbg');if(/^#[0-9a-f]{3,8}$/i.test(r.warna||''))s.setProperty('--brand',r.warna);['--lq-a','--lq-b','--lq-c'].forEach((k,i)=>{const w=(r.tema||[])[i];if(/^#[0-9a-f]{6}$/i.test(w||''))s.setProperty(k,w);else s.removeProperty(k)});const hpMati=r.animHp==='1'&&(matchMedia('(hover:none) and (pointer:coarse)').matches||/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent));document.documentElement.classList.toggle('hp-mati',hpMati);if(window.Partikel)Partikel.set(hpMati?'':(r.partikel||''));if(window.Hewan)Hewan.set(hpMati?'off':(r.hewan||'lebah'));if(/^https:\/\//.test(r.bg||'')){s.setProperty('--bg-img','url("'+r.bg+'")');document.documentElement.classList.add('hasbg')}}
 const flip=()=>{setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark',1);if(S.t&&S.view==='dash')dash()};
 let _clk;function tick(){const e=$('#ck');if(!e){clearInterval(_clk);return}const d=new Date(),H=d.getHours(),
  [g,i]=H>=5&&H<11?['Selamat Pagi','wb_twilight']:H>=11&&H<15?['Selamat Siang','wb_sunny']:H>=15&&H<18?['Selamat Sore','partly_cloudy_day']:['Selamat Malam','bedtime'];

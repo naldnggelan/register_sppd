@@ -366,3 +366,17 @@ tr:hover td.t{background:rgba(255,255,255,.04)}
 /* Daftar Surat Tugas Pimpinan: tombol aksi rapi & terlipat di HP */
 .pimAks{display:flex;flex-wrap:wrap;gap:.35rem}
 @media(max-width:640px){table.dpaSubTbl td:last-child .pimAks{justify-content:flex-start;width:100%}}
+
+/* Pesan Keluar: gembok menutup + layar perpisahan */
+@keyframes kxpop{0%{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes kxshk{0%{transform:translateY(-9px)}60%{transform:translateY(1px)}100%{transform:none}}
+@keyframes kxdraw{to{stroke-dashoffset:0}}@keyframes kxtxt{to{opacity:1;transform:none}}@keyframes kxout{to{opacity:0}}
+.kxic{width:64px;height:64px;display:block;margin:0 auto}
+.kxm .kx{animation:kxpop .35s ease}.kxm .kxshk{animation:kxshk .55s .45s cubic-bezier(.3,1.6,.5,1) both}
+.kxbye{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(2,10,18,.88);color:#fff;font-size:1.3rem;animation:kxtxt .01s both}
+.kxbye small{font-size:.8rem;font-weight:500;color:#9fb8c0;opacity:0;animation:kxtxt .35s .6s ease forwards}
+.kxbye svg{animation:kxpop .35s ease}.kxbye .kxck{stroke-dasharray:30;stroke-dashoffset:30;animation:kxdraw .4s .3s ease forwards}
+.kxbye .kxt1{font-weight:800;opacity:0;transform:translateY(6px);animation:kxtxt .35s .4s ease forwards}
+.kxbye.out{animation:kxout .4s ease forwards}
+.hp-mati .kxm .kx,.hp-mati .kxm .kxshk,.hp-mati .kxbye,.hp-mati .kxbye *{animation:none!important;opacity:1!important;transform:none!important;stroke-dashoffset:0!important}
+@media(prefers-reduced-motion:reduce){.kxm .kx,.kxm .kxshk,.kxbye,.kxbye *{animation:none!important;opacity:1!important;transform:none!important;stroke-dashoffset:0!important}}
