@@ -1,10 +1,18 @@
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-async function apiOnce_(f,a,ms){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),ms);try{const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:f,args:a}),signal:ctrl.signal});const text=await res.text();try{return JSON.parse(text)}catch(e){return{success:false,net_:true,message:'Server membalas format tidak dikenal.'}}}catch(e){return{success:false,net_:true,abort_:e.name==='AbortError',message:e.name==='AbortError'?'Server terlalu lama merespons.':'Koneksi terputus.'}}finally{clearTimeout(timer)}}
+async function apiOnce_(f,a,ms){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),ms);try{const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:f,args:a}),signal:ctrl.signal});const text=await res.text();try{return JSON.parse(text)}catch(e){return{success:false,net_:true,message:'Server membalas format tidak dikenal (kode '+res.status+').'}}}catch(e){return{success:false,net_:true,abort_:e.name==='AbortError',message:e.name==='AbortError'?'Server terlalu lama merespons.':'Koneksi terputus.'}}finally{clearTimeout(timer)}}
 // Pembuatan dokumen (pratinjau/PDF/Word/Excel) memang butuh waktu lebih lama: diberi batas tunggu 2 menit dan TIDAK diulang otomatis
 // saat waktu tunggu habis - sebelumnya dipotong di 12-15 detik lalu diulang dari awal sampai 4x, sehingga totalnya jauh lebih lama.
 const SLOW_FN=/^(login|boot|preview|previewST|previewSP|pimPreviewST|pimPreviewSP|pimPreviewSPB|pimXlsx|pimPdfST|pimPdfSP|pdf|pdfST|pdfSP|kwiPreview|kwiPdf|kwiPdfBulan|lapPreview|lapPdf|bkuPreview|bkuPdf|exportDoc|exportRekapXlsx|exportDpaXlsx|exportBkuXlsx|exportRegisterXlsx|exportRiwayatXlsx|kwiXlsx|arsipkanTahun|rrpdPreview|rrpdPdf|previewSPB|pdfSPB|xlsSPB|lapXlsx|ttdbInfo|rrpdGenerate|backupSekarang)$/;
 const RRPD_MENU=['rrpd','request_page','Rincian Rencana Penggunaan Dana (RRPD)'];
-const api0_=async(f,...a)=>{const t0=Date.now(),slow=SLOW_FN.test(f);let r;for(let i=0;i<4;i++){if(i)await new Promise(ok=>setTimeout(ok,i*700));r=await apiOnce_(f,a,slow?120000:(i<2?12000:15000));if(r.success)break;if(!r.net_&&r.message!=='Gunakan POST untuk semua permintaan.')break;if(slow&&r.abort_)break}Perf.add(f,Date.now()-t0,r.ms,r.success);if(!r.success)throw new Error(r.message||'Terjadi kesalahan.');return r.data};
+// Pembatas permintaan bersamaan ke server (Google membatasi eksekusi serentak; kelebihan permintaan ditolak tanpa balasan -> "Koneksi terputus"). Dokumen berat tidak ikut antre.
+let _gasAktif=0;const _gasAntri=[],GAS_MAKS=5;
+const gasSlot_=()=>new Promise(ok=>{if(_gasAktif<GAS_MAKS){_gasAktif++;ok()}else _gasAntri.push(ok)});
+const gasLepas_=()=>{const n=_gasAntri.shift();if(n)n();else _gasAktif--};
+async function diagKoneksi_(){ // setelah semua percobaan gagal: bedakan internet putus vs server Google menolak
+ if(navigator.onLine===false)return'Perangkat tidak tersambung ke internet.';
+ const ok=await new Promise(res=>{const c=new AbortController(),t=setTimeout(()=>{c.abort();res(false)},8000);fetch(GAS_URL+'?w=1',{mode:'no-cors',cache:'no-store',signal:c.signal}).then(()=>{clearTimeout(t);res(true)},()=>{clearTimeout(t);res(false)})});
+ return ok?'Server menolak permintaan ini (internet Anda normal). Tunggu sebentar lalu coba lagi.':'Server Google tidak dapat dijangkau. Periksa internet/VPN/antivirus, lalu coba lagi.'}
+const api0_=async(f,...a)=>{const t0=Date.now(),slow=SLOW_FN.test(f);let r;for(let i=0;i<4;i++){if(i)await new Promise(ok=>setTimeout(ok,[0,900,2500,4000][i]));if(!slow)await gasSlot_();try{r=await apiOnce_(f,a,slow?120000:(i<2?12000:15000))}finally{if(!slow)gasLepas_()}if(r.success)break;if(!r.net_&&r.message!=='Gunakan POST untuk semua permintaan.')break;if(slow&&r.abort_)break}if(!r.success&&r.net_&&!r.abort_&&/^Koneksi terputus/.test(r.message||''))r.message=await diagKoneksi_();Perf.add(f,Date.now()-t0,r.ms,r.success);if(!r.success)throw new Error(r.message||'Terjadi kesalahan.');return r.data};
 // ---------- TURBO (gas-scale-turbo): pengukur, gabung permintaan identik, batch otomatis, pemanasan ----------
 // Perf.table() / Perf.summary() di Console browser: waktu total, waktu kerja server, jaringan.
 const Perf={log:[],add(f,tot,srv,ok){this.log.push({aksi:f,total_ms:tot,server_ms:srv??'',jaringan_ms:srv!=null?tot-srv:'',ok});if(this.log.length>200)this.log.shift()},
@@ -894,7 +902,11 @@ function resetPassDlg(username){const m=document.createElement('div');m.classNam
 async function cfgPage_(v,render,judul){const k=ajuK(),snap=S.cfgSnap&&S.cfgSnap.k===k?S.cfgSnap.c:null,c0=S.cfgCache||snap;
  if(c0){S._cfgDirty=false;render(c0)}else $('#main').innerHTML='<h1 class="text-2xl font-bold mb-3">'+judul+'</h1><div class="glass p-5" style="color:var(--text-2)"><span class="spin"></span> Memuat pengaturan…</div>';
  if(S.cfgCache)return; // sudah segar di sesi ini
- const p=api('getCfg',S.t),c=c0?await p.catch(()=>null):await run(()=>p);if(!c||ajuK()!==k)return;S.cfgCache=c;S.cfgSnap={k,c};
+ const p=api('getCfg',S.t);let er=null;const c=c0?await p.catch(()=>null):await run(()=>p.catch(e=>{er=e;throw e}));
+ if(!c&&er&&!c0&&S.view===v&&$('#main')){ // gagal muat & belum ada data: tampilkan pesan + tombol ulang (bukan spinner tanpa akhir)
+  $('#main').innerHTML='<h1 class="text-2xl font-bold mb-3">'+judul+'</h1><div class="glass p-5"><p style="color:var(--red);font-weight:600"><span class="ms" style="vertical-align:-5px">cloud_off</span> '+esc(er.message||'Gagal memuat pengaturan.')+'</p><button class="btn mt-3" id="cfgUlang"><span class="ms">refresh</span> Coba Lagi</button></div>';
+  $('#cfgUlang').onclick=()=>{S.cfgCache=null;cfgPage_(v,render,judul)};return}
+ if(!c||ajuK()!==k)return;S.cfgCache=c;S.cfgSnap={k,c};
  if(S.view!==v||document.querySelector('.modal'))return;
  if(!c0||(!S._cfgDirty&&JSON.stringify(c)!==JSON.stringify(c0))){S._cfgDirty=false;render(c)}} // tidak menimpa isian yang sedang diketik
 function cfgIsi_(o){if(S.cfgSnap&&S.cfgSnap.c)Object.assign(S.cfgSnap.c,o);S.cfgCache=null} // setelah simpan: data terakhir ikut diperbarui
