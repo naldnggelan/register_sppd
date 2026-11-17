@@ -50,7 +50,7 @@ function refreshPs(){const s=$('#f2').value,l=$('#f3').value,w=[];
  if(q.length){const f=[...$('#ps').options].find(o=>o.value&&!o.disabled);if(f)$('#ps').value=f.value} // hasil cari: pegawai pertama yang tersedia langsung terpilih (Enter / Tambah)
  const pn=$('#pqn');if(pn)pn.textContent=q.length?list.length+' pegawai cocok':'';
  chips();warn(w)}
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>new Date(Date.now()+8*36e5).toISOString().slice(0,10); // tanggal hari ini WITA (UTC+8, sama dengan server) - sebelumnya memakai UTC sehingga pukul 00.00-08.00 WITA masih terbaca tanggal kemarin
 const badge=b=>`<span class="bd" style="background:color-mix(in srgb,var(--b-${(b||'').toLowerCase()}) 12%,transparent);color:var(--b-${(b||'').toLowerCase()})">● ${esc(b)}</span>`;
 const S0=()=>({t:'',role:'',nama:'',d:[],pg:[],us:[],jadwal:[],bidang:'',lap:[],wil:[],foto:'',kwi:[],tarif:{luar:170000,dalam:70000,luarDaerah:450000},logo:'',footer:'',view:'dash',page:1,q:'',fb:'',fm:'',yr:String(new Date().getFullYear()),pick:[],cfgCache:null,dpaCache:{},bkuCache:null,pegCache:null,maintenance:false});
 let S=S0(),charts=[];
@@ -791,7 +791,7 @@ function lapDlg(k){const pm=k.indexOf('PIM:')===0,rs=pm?pimRs_(k):S.d.filter(r=>
 // Ikon mata: Kwitansi / Laporan yang sudah dibuat langsung dibuka pratinjaunya (tanpa mengisi dialog lagi)
 async function lihatDok_(b,k,fnPrev,fnPdf,nama){const isi=b.innerHTML,done=()=>{b.disabled=false;b.innerHTML=isi};b.disabled=true;b.innerHTML='<span class="spin"></span>';const ov=ldxOverlay('Membuka '+nama+'…',['Mengambil data…','Menyusun dokumen…','Hampir selesai…'],nama+' siap ✓');let v;try{v=await run(()=>api(fnPrev,S.t,k));if(v)prev(v,k,fnPdf)}finally{ov(!!v);done()}}
 function kwiV(){const G=grupD_(),K=idxST_(S.kwi);let g=urutInput([...G.keys()]).map(k=>G.get(k)); // paling baru diinput di atas (sama seperti Rekap)
- S.kwm=S.kwm||new Date().toISOString().slice(0,7);S.fbk=S.fbk||'';
+ S.kwm=S.kwm||today().slice(0,7);S.fbk=S.fbk||'';
  if(S.fbk)g=g.filter(a=>a[0].Bidang===S.fbk);
  $('#main').innerHTML=`<h1 class="text-2xl font-bold mb-3">Cetak Kwitansi</h1>
  <div class="glass p-4 mb-4 flex flex-wrap items-end gap-3"><div><label for="km">Cetak Massal — Bulan Surat Tugas</label><input id="km" type="month" class="inp" style="width:auto" value="${S.kwm}"></div><button class="btn2" id="kmg"><span class="ms">picture_as_pdf</span> Cetak Semua Kwitansi Bulan Ini</button><p class="text-xs" style="color:var(--text-2);flex:1;min-width:200px">Menggabungkan semua Kwitansi yang sudah diatur (jenis &amp; tarif terisi) dari Surat Tugas pada bulan terpilih${S.fbk?' dan Bidang '+esc(S.fbk):''} menjadi satu file PDF.</p></div>
