@@ -46,7 +46,7 @@ const warnToast=m=>toast(m,1);
 function refreshPs(){const s=$('#f2').value,l=$('#f3').value,w=[];
  S.pick.filter(n=>clash(n,s,l)).forEach(n=>{w.push(msgClash(n,clash(n,s,l))+' dan dikeluarkan dari daftar.');S.pick=S.pick.filter(x=>x!==n)});
  const q=(($('#pq')||{}).value||'').toLowerCase().trim().split(/\s+/).filter(Boolean),list=q.length?S.pg.filter(p=>{const h=((p.Nama||'')+' '+(p.NIP||'')+' '+(p.Jabatan||'')+' '+(p.Pangkat||'')).toLowerCase();return q.every(k=>h.includes(k))}):S.pg;
- $('#ps').innerHTML=(q.length&&!list.length?'<option value="">— Tidak ada pegawai yang cocok —</option>':'<option value="">— Pilih pegawai —</option>')+list.map(p=>{const c=clash(p.NIP,s,l);return`<option value="${esc(p.NIP)}" ${c?'disabled':''}>${esc(p.Nama)}${c?' (sedang bertugas)':''}</option>`}).join('');
+ $('#ps').innerHTML=(q.length&&!list.length?'<option value="">— Tidak ada pegawai yang cocok —</option>':'<option value="">— Pilih pegawai —</option>')+list.map(p=>{const c=clash(p.NIP,s,l);return`<option value="${esc(p.NIP)}" ${c?'disabled':''}>${esc(p.Nama)}${c?' (sedang bertugas'+(c.Bidang?' dari Bidang '+esc(c.Bidang):'')+')':''}</option>`}).join('');
  if(q.length){const f=[...$('#ps').options].find(o=>o.value&&!o.disabled);if(f)$('#ps').value=f.value} // hasil cari: pegawai pertama yang tersedia langsung terpilih (Enter / Tambah)
  const pn=$('#pqn');if(pn)pn.textContent=q.length?list.length+' pegawai cocok':'';
  chips();warn(w)}
