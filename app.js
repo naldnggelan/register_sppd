@@ -607,6 +607,8 @@ function pencairanKasubagR(riw,dpa){
  <div class="glass p-4 mb-4"><b>Sisa Anggaran Tiap Bidang (${S.yr})</b><div class="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-3">
  ${dpa.map(x=>`<div class="glass2 p-3">${badge(x.Bidang)}<div class="text-xl font-bold mt-2" style="color:${x.Sisa<0?'var(--red)':'var(--accent-text)'}">${rpf(x.Sisa)}</div><div class="text-xs" style="color:var(--text-2)">dari Pagu ${rpf(x.Pagu)}</div></div>`).join('')||'<small style="color:var(--text-2)">Data DPA belum tersedia.</small>'}
  </div></div>
+ ${S.role==='Super Admin'?`<div class="glass p-4 mb-4"><b>Ajukan Pencairan Baru</b><p class="text-xs mb-3" style="color:var(--text-2)">Super Admin dapat mengajukan untuk Bidang mana pun. Pilih Bidang, lalu Surat Tugas yang Kwitansinya sudah diatur (satu pengajuan = satu Bidang).</p>
+ <div class="flex gap-2 items-center mb-3"><label for="saBd" class="text-sm">Bidang</label><select id="saBd" class="inp" style="max-width:260px"><option value="">— Pilih Bidang —</option>${BID.map(b=>`<option value="${b}">${b}</option>`).join('')}</select></div><div id="saEl"></div></div>`:''}
  <p class="text-xs mb-3" style="color:var(--text-2)">Daftar pengajuan pencairan dari semua Bidang. Setujui atau tolak (wajib disertai catatan) sebelum dana dicairkan.</p>
  <div class="glass p-2 overflow-x-auto"><table class="w-full" style="min-width:900px"><thead><tr><th>Tgl Ajukan</th><th>Bidang</th><th>Surat Tugas</th><th>Jumlah</th><th>Diajukan Oleh</th><th>Status</th><th>Diproses</th><th>Aksi</th></tr></thead><tbody>
  ${riw.map(x=>`<tr><td class="t"><b>${idn(x.tglAjukan)}</b></td><td class="t">${badge(x.bidang)}</td><td class="t">${x.noSTList.length} ST</td><td class="t">${rpf(x.jumlah)}</td><td class="t">${esc(x.diajukanOleh)}</td><td class="t">${ajuanBadge(x.status)}${x.status==='Ditolak'&&x.catatan?`<br><small style="color:var(--text-2)">${esc(x.catatan)}</small>`:''}</td><td class="t">${x.tglProses?`<small>${idn(x.tglProses)}<br>${esc(x.diprosesOleh)}</small>`:'<small style="color:var(--text-2)">-</small>'}</td>
@@ -614,7 +616,21 @@ function pencairanKasubagR(riw,dpa){
  </tbody></table></div>`;
  document.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{const r=await run(()=>api('pengajuanRincian',S.t,b.dataset.r));if(r)pengajuanRincianDlg('Rincian Pengajuan Pencairan',r)});
  document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!await confirmDlg('Setujui pengajuan pencairan ini?'))return;const done=busy(b,'Memproses…');try{const ok=await run(()=>api('pengajuanProses',S.t,b.dataset.ok,true,''),'Pengajuan disetujui');if(ok){S.ajuanList=null;S.kasSnap=null;S.dpaCache={};pencairanV()}}finally{done()}});
- document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>pengajuanTolakDlg(b.dataset.no))}
+ document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>pengajuanTolakDlg(b.dataset.no));
+ if(S.role==='Super Admin'){const sel=$('#saBd');sel.value=S.saBd||'';
+  const muat=async()=>{const bd=sel.value;S.saBd=bd;const box=$('#saEl');if(!bd){box.innerHTML='';return}
+   box.innerHTML='<div style="color:var(--text-2)"><span class="spin"></span> Memuat Surat Tugas '+esc(bd)+'…</div>';
+   const el=await run(()=>api('pencairanEligible',S.t,bd));if(sel.value!==bd||!el)return;
+   box.innerHTML=`<div class="overflow-x-auto"><table class="w-full" style="min-width:920px"><thead><tr><th><input type="checkbox" id="saAll" aria-label="Pilih semua"></th><th>Tgl ST</th><th>No. Surat Tugas</th><th>Tujuan</th><th>Maksud Perjalanan Dinas</th><th>Jml Petugas</th><th>Jenis</th><th>Jumlah</th></tr></thead><tbody>
+   ${el.map(x=>`<tr><td class="t"><input type="checkbox" class="ajuanChk" value="${esc(x.noST)}" data-t="${x.total}"></td><td class="t"><b>${idn(x.tglST)}</b></td><td class="t">${esc(x.noST)}</td><td class="t">${esc(x.tujuan)}</td><td class="t">${esc(x.maksud||'-')}</td><td class="t">${x.jumlahPetugas??x.pegawai.length} orang</td><td class="t">${esc(x.jenis)}</td><td class="t">${rpf(x.total)}</td></tr>`).join('')||'<tr><td class="t" colspan="8">Tidak ada Surat Tugas Bidang ini yang siap diajukan (Kwitansi belum diatur, atau sudah termasuk pengajuan lain).</td></tr>'}
+   </tbody></table></div><div class="flex flex-wrap justify-between items-center gap-3 mt-3"><span>Total dipilih: <b id="saTot">Rp 0</b></span><button class="btn" id="saBtn" disabled><span class="ms">send</span> Ajukan Pencairan</button></div>`;
+   const recalc=()=>{const ch=[...document.querySelectorAll('.ajuanChk:checked')],tot=ch.reduce((a,c)=>a+(+c.dataset.t||0),0);$('#saTot').textContent=rpf(tot);$('#saBtn').disabled=!ch.length};
+   document.querySelectorAll('.ajuanChk').forEach(c=>c.onchange=recalc);
+   if($('#saAll'))$('#saAll').onchange=e=>{document.querySelectorAll('.ajuanChk').forEach(c=>c.checked=e.target.checked);recalc()};
+   $('#saBtn').onclick=async()=>{const keys=[...document.querySelectorAll('.ajuanChk:checked')].map(c=>c.value);if(!keys.length)return;
+    if(!await confirmDlg('Ajukan pencairan Bidang '+bd+' untuk '+keys.length+' Surat Tugas senilai '+$('#saTot').textContent+'?\n\nPengajuan akan masuk ke daftar di bawah dan menunggu persetujuan.','Konfirmasi Pengajuan'))return;
+    const done=busy($('#saBtn'),'Mengajukan…');try{const r=await run(()=>api('pengajuanAjukan',S.t,keys),'Pengajuan Pencairan terkirim');if(r){S.ajuanElig=null;S.ajuanList=null;S.ajuSnap=null;S.kasSnap=null;await pencairanV()}}finally{done()}}};
+  sel.onchange=muat;if(sel.value)muat()}}
 const idnF=s=>{if(!s)return'-';const[y,m,d]=s.split('-');return d+' '+BL[m-1]+' '+y};
 function lapGen(rs,vi){const x=rs[0],tg=x.Berangkat===x.Kembali?idnF(x.Berangkat):idnF(x.Berangkat)+' s.d. '+idnF(x.Kembali);
  const mk=String(x.Maksud||'').trim(),kj=/^(Me[a-z]+|Mengikuti|Menghadiri|Ber[a-z]+)\s/i.test(mk)?mk.charAt(0).toUpperCase()+mk.slice(1):'Melaksanakan '+mk, // Maksud sudah diawali kata kerja -> tidak ditambah "Melaksanakan" lagi
