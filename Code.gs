@@ -42,6 +42,8 @@ function doPost(e) {
       pegawaiList, savePegawai, editPegawai, setPegawaiAktif,
       // Manajemen Pengguna
       addUser, resetPass,
+      // Surat Tugas sebagai Excel (pegawai dibagi per halaman)
+      stXlsx,
       // Pengaturan Pejabat Penandatangan & Cetak
       getCfg, saveCfg, saveTtd, delTtd, dasarGet, saveCap, delCap, saveTtdCap, delTtdCap,
       // Admin
@@ -1909,14 +1911,14 @@ function ssPdfQ_(c, landscape) { // parameter ekspor PDF Google Sheets: kertas L
   return 'format=pdf&size=legal&portrait=' + (landscape ? 'false' : 'true') + '&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenum=UNDEFINED&fzr=false&horizontal_alignment=CENTER'
     + '&top_margin=' + inci(c.SP_ATAS) + '&bottom_margin=' + inci(c.SP_BAWAH) + '&left_margin=' + inci(c.SP_KIRI) + '&right_margin=' + inci(c.SP_KANAN);
 }
-function xlsxCetak_(bytes, c, ori, satu) { // satu opsional: true = muat 1 halaman (Belakang SPPD) // ori opsional: 'portrait' (Kwitansi); bawaan landscape // atur halaman di file Excel: kertas Legal, Landscape, muat 1 halaman lebar, rata tengah
+function xlsxCetak_(bytes, c, ori, satu, brk) { // satu opsional: true = muat 1 halaman (Belakang SPPD) // ori opsional: 'portrait' (Kwitansi); bawaan landscape // atur halaman di file Excel: kertas Legal, Landscape, muat 1 halaman lebar, rata tengah
   const inci = mm => (Math.max(0, Number(mm) || 0) / 25.4).toFixed(2);
   const files = Utilities.unzip(Utilities.newBlob(bytes, 'application/zip', 'bku.zip'));
   const out = files.map(f => /^xl\/worksheets\/sheet\d+\.xml$/.test(f.getName())
-    ? Utilities.newBlob(xlsxSetupXml_(f.getDataAsString('UTF-8'), inci(c.SP_KIRI), inci(c.SP_KANAN), inci(c.SP_ATAS), inci(c.SP_BAWAH), ori, satu), 'application/xml', f.getName()) : f);
+    ? Utilities.newBlob(xlsxSetupXml_(f.getDataAsString('UTF-8'), inci(c.SP_KIRI), inci(c.SP_KANAN), inci(c.SP_ATAS), inci(c.SP_BAWAH), ori, satu, brk), 'application/xml', f.getName()) : f);
   return Utilities.zip(out, 'bku.xlsx').getBytes();
 }
-function xlsxSetupXml_(x, L, R, T, B, ori, satu) { // sisipkan pengaturan cetak ke XML lembar kerja Excel, sesuai urutan elemen standar Office Open XML
+function xlsxSetupXml_(x, L, R, T, B, ori, satu, brk) { // brk opsional: daftar nomor baris tempat halaman dipotong (Surat Tugas Excel) // sisipkan pengaturan cetak ke XML lembar kerja Excel, sesuai urutan elemen standar Office Open XML
   x = x.replace(/<printOptions\b[^>]*\/>/g, '').replace(/<pageMargins\b[^>]*\/>/g, '').replace(/<pageSetup\b[^>]*\/>/g, '');
   const sisip = '<printOptions horizontalCentered="1"/><pageMargins left="' + L + '" right="' + R + '" top="' + T + '" bottom="' + B + '" header="0.2" footer="0.2"/>'
     + '<pageSetup paperSize="5" orientation="' + (ori === 'portrait' ? 'portrait' : 'landscape') + '" fitToWidth="1" fitToHeight="' + (satu ? 1 : 0) + '"/>';
@@ -1925,6 +1927,12 @@ function xlsxSetupXml_(x, L, R, T, B, ori, satu) { // sisipkan pengaturan cetak 
   if (/<sheetPr\b[^>]*\/>/.test(x)) x = x.replace(/<sheetPr\b([^>]*?)\s*\/>/, '<sheetPr$1><pageSetUpPr fitToPage="1"/></sheetPr>');
   else if (/<sheetPr\b/.test(x)) x = /<pageSetUpPr\b/.test(x) ? x.replace(/<pageSetUpPr\b([^>]*?)\s*\/>/, (s, a) => '<pageSetUpPr' + a.replace(/\sfitToPage="[^"]*"/, '') + ' fitToPage="1"/>') : x.replace('</sheetPr>', '<pageSetUpPr fitToPage="1"/></sheetPr>');
   else x = x.replace(/(<worksheet\b[^>]*>)/, '$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+  if (brk && brk.length) { // pemisah halaman manual: urutan standar = sesudah pageSetup/headerFooter, sebelum drawing dst.
+    x = x.replace(/<rowBreaks\b[\s\S]*?<\/rowBreaks>/, '');
+    const rb = '<rowBreaks count="' + brk.length + '" manualBreakCount="' + brk.length + '">' + brk.map(b => '<brk id="' + b + '" max="16383" man="1"/>').join('') + '</rowBreaks>';
+    const m2 = x.match(/<(colBreaks|customProperties|cellWatches|ignoredErrors|smartTags|drawing|legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|webPublishItems|tableParts|extLst)\b/);
+    x = m2 ? x.slice(0, m2.index) + rb + x.slice(m2.index) : x.replace('</worksheet>', rb + '</worksheet>');
+  }
   return x;
 }
 function bkuDoc_(cell, cw, d, c) {
@@ -2588,6 +2596,91 @@ function pimPreviewSPB(t, id) { // Belakang SPPD Pimpinan: isi sama dengan Belak
   const d = pimBuat_(t, id, true), c = d.c, x = d.r[0];
   const h = wrap_(blkHtml_(x, c), Object.assign({}, c, { SP_ATAS: Math.min(Number(c.SP_ATAS) || 0, 12), SP_BAWAH: Math.min(Number(c.SP_BAWAH) || 0, 10) }), 'SP');
   return '<style>@page{size:216mm 356mm}td,div{font-size:9pt!important;line-height:1.15}</style><body style="background:#cfd8d3;margin:0;padding:10px"><div style="width:216mm;min-height:356mm;background:#fff;margin:0 auto 12px;box-shadow:0 2px 10px rgba(0,0,0,.25);box-sizing:border-box">' + h + '</div></body>';
+}
+function stXlsx(t, key) { // Surat Tugas (semua pegawai) sebagai Excel: Legal portrait; pegawai dibagi per halaman sehingga 1 pegawai tidak terpotong - disusun lewat Google Sheets sementara
+  const u = auth_(t, true); own_(u, key);
+  const c = cfg_(), r = prep_(key, c); ttdST_(c);
+  const x = r[0], n = r.length, F = Number(c.UKURAN_ST) || 12, W = [62, 10, 22, 78, 14, 162, 348], NC = 7, lh = Math.round((1.15 * F + 2.2) * 96 / 72);
+  const ss = SpreadsheetApp.create('tmp_stxls_' + Date.now()), sid = ss.getId();
+  try {
+    const sh = ss.getSheets()[0].setName('Surat Tugas'), S = SpreadsheetApp.BorderStyle, BK = '#000000';
+    W.forEach((w, i) => sh.setColumnWidth(i + 1, w));
+    const lebar = (a, b) => W.slice(a - 1, b).reduce((q, v) => q + v, 0);
+    const baris = (txt, px) => String(txt).split('\n').reduce((q, l) => q + Math.max(1, Math.ceil(l.length * (F * 0.55) / Math.max(40, px - 8))), 0);
+    const V = [], H = {}, put = (rw, cl, v) => { while (V.length < rw) V.push(['', '', '', '', '', '', '']); V[rw - 1][cl - 1] = v; };
+    const tengah = [], tebal = [], garis = [], kanan = [], bungkus = [], gabung = []; // daftar perintah format (dijalankan sekali di akhir)
+    const KP = ['PEMERINTAH KABUPATEN NGADA', 'SATUAN POLISI PAMONG PRAJA DAN KEBAKARAN', 'Jln. Soekarno – Hatta No.1 Tlp. (0384) 2200019, Email.satpolppngada3@gmail.com', 'B A J A W A'];
+    let rw = 1;
+    for (let i = 0; i < 4; i++) { put(rw, 1, KP[i]); gabung.push([rw, 1, NC]); tengah.push(rw); H[rw] = [22, 22, 16, 20][i]; rw++; }
+    const kopAkhir = rw - 1; rw++; // baris kosong
+    put(rw, 1, 'SURAT TUGAS'); gabung.push([rw, 1, NC]); tengah.push(rw); tebal.push('A' + rw); garis.push('A' + rw); rw++;
+    put(rw, 1, 'Nomor : ' + x.NoST); gabung.push([rw, 1, NC]); tengah.push(rw); rw += 2;
+    const dsr = dasarList_(x.DasarST);
+    if (dsr.length) dsr.forEach((q, i) => { if (!i) { put(rw, 1, 'Dasar'); put(rw, 2, ':'); } if (dsr.length > 1) { put(rw, 3, String(i + 1) + '.'); kanan.push('C' + rw); } put(rw, 4, q); gabung.push([rw, 4, NC]); bungkus.push([rw, 4, NC]); H[rw] = Math.max(lh, baris(q, lebar(4, NC)) * lh); rw++; });
+    else { put(rw, 1, 'Dasar'); put(rw, 2, ':'); rw++; }
+    rw++; put(rw, 1, 'MEMERINTAHKAN :'); gabung.push([rw, 1, NC]); tengah.push(rw); tebal.push('A' + rw); rw += 2;
+    const kepala = rw - 1, pg = []; // pg: [baris awal, baris akhir] tiap pegawai
+    r.forEach((q, i) => {
+      const a = rw;
+      [['Nama', q.Nama], ['Pangkat/Gol', q.Pangkat], ['NIP', q.NIP], ['Jabatan', q.Jabatan]].forEach((f, k) => {
+        if (k === 0) { if (n > 1) { put(rw, 3, String(i + 1)); kanan.push('C' + rw); } if (!i) { put(rw, 1, 'Kepada'); put(rw, 2, ':'); } tebal.push('F' + rw); }
+        put(rw, 4, f[0]); put(rw, 5, ':'); put(rw, 6, f[1]); rw++;
+      });
+      pg.push([a, rw - 1]);
+    });
+    rw++; const tailMulai = rw - 1;
+    const un = untukST_(x); put(rw, 1, 'Untuk'); put(rw, 2, ':'); put(rw, 3, un); gabung.push([rw, 3, NC]); bungkus.push([rw, 3, NC]); H[rw] = Math.max(lh, baris(un, lebar(3, NC)) * lh); rw += 2;
+    put(rw, 7, 'Dikeluarkan di   :  ' + c.KOTA); rw++; put(rw, 7, 'Pada Tanggal    :  ' + idn_(x.TglST)); rw += 2;
+    ['an.KEPALA SATUAN POLISI PAMONG PRAJA DAN KEBAKARAN', 'KABUPATEN NGADA', c.TTD_JABATAN].forEach(q => { put(rw, 7, q); tengah.push(rw); rw++; });
+    const g1 = rw; rw += 3; // ruang tanda tangan (3 baris)
+    put(rw, 7, c.TTD_NAMA); tengah.push(rw); tebal.push('G' + rw); garis.push('G' + rw); rw++;
+    put(rw, 7, c.TTD_PANGKAT); tengah.push(rw); rw++;
+    put(rw, 7, 'NIP. ' + c.TTD_NIP); tengah.push(rw); const akhir = rw;
+    // tulis semua sekaligus
+    if (sh.getMaxRows() < akhir) sh.insertRowsAfter(sh.getMaxRows(), akhir - sh.getMaxRows());
+    const all = sh.getRange(1, 1, akhir, NC);
+    all.setFontFamily(c.FONT || 'Arial Narrow').setFontSize(F).setVerticalAlignment('top').setHorizontalAlignment('left');
+    sh.setHiddenGridlines(true);
+    while (V.length < akhir) V.push(['', '', '', '', '', '', '']);
+    all.setNumberFormat('@').setValues(V.slice(0, akhir));
+    sh.setRowHeights(1, akhir, lh); Object.keys(H).forEach(k => sh.setRowHeight(+k, Math.round(H[k])));
+    [[15, 0, 0], [14, 1, 0], [9, 0, 1], [12, 1, 0]].forEach((q, i) => { const g = sh.getRange(i + 1, 1, 1, NC); g.setFontSize(q[0]); if (q[1]) g.setFontWeight('bold'); if (q[2]) g.setFontStyle('italic'); });
+    gabung.forEach(q => sh.getRange(q[0], q[1], 1, q[2] - q[1] + 1).merge());
+    bungkus.forEach(q => sh.getRange(q[0], q[1], 1, q[2] - q[1] + 1).setWrap(true));
+    tengah.forEach(q => sh.getRange(q, 1, 1, NC).setHorizontalAlignment('center'));
+    if (tebal.length) sh.getRangeList(tebal).setFontWeight('bold');
+    if (garis.length) sh.getRangeList(garis).setFontLine('underline');
+    if (kanan.length) sh.getRangeList(kanan).setHorizontalAlignment('right');
+    sh.getRange(kopAkhir, 1, 1, NC).setBorder(null, null, true, null, null, null, BK, S.SOLID_THICK);
+    if (c.LOGO) { try { sh.insertImage(blob_(c.LOGO, 'logo.png'), 1, 1, 4, 2).setWidth(66).setHeight(68); } catch (e) {} }
+    const tinggiBaris = q => H[q] || lh, top = q => { let s = 0; for (let i = 1; i < q; i++) s += tinggiBaris(i); return s; };
+    if (c.TTD) { // TTD (+ CAP) melayang di atas ruang tanda tangan, di tengah kolom kanan (seperti di PDF)
+      try {
+        const px = mm => mm * 96 / 25.4, im = sh.insertImage(blob_(c.TTD, 'ttd.png'), 7, g1, 0, 0), ow = im.getWidth(), oh = im.getHeight(), w = px(Number(c.TTD_LEBAR || 40)), h = w * oh / ow;
+        im.setWidth(Math.round(w)).setHeight(Math.round(h));
+        const y = top(g1) + (3 * lh - h) / 2, ox = Math.max(0, Math.round((W[6] - w) / 2 - px(Number(c.TTD_GESER) || 0)));
+        let br = 1; while (br < g1 && top(br + 1) <= y) br++; if (br > g1) br = g1; // baris jangkar: baris yang memuat titik atas gambar
+        im.setAnchorCell(sh.getRange(Math.max(1, br), 7)); im.setAnchorCellXOffset(ox); im.setAnchorCellYOffset(Math.max(0, Math.round(y - top(Math.max(1, br)))));
+      } catch (e) {}
+    }
+    if (sh.getMaxColumns() > NC) sh.deleteColumns(NC + 1, sh.getMaxColumns() - NC);
+    if (sh.getMaxRows() > akhir) sh.deleteRows(akhir + 1, sh.getMaxRows() - akhir);
+    // pemisah halaman: pegawai TIDAK terpotong; perkiraan tinggi memakai tinggi baris (px) yang pasti
+    const hs = (a, b) => { let q = 0; for (let i = a; i <= b; i++) q += tinggiBaris(i); return q; };
+    const fit = Math.min(1, (612 - (Number(c.ST_KIRI) + Number(c.ST_KANAN)) * MM) / (lebar(1, NC) * 0.75)), usable = (1008 - (Number(c.ST_ATAS) + Number(c.ST_BAWAH)) * MM) / fit / 0.75 * 0.97;
+    const hal = []; let cur = [], used = hs(1, kepala);
+    pg.forEach((p, i) => { const ph = hs(p[0], p[1]); if (cur.length && used + ph > usable) { hal.push(cur); cur = []; used = 0; } cur.push(i); used += ph; });
+    if (hal.length && used + hs(tailMulai, akhir) > usable && cur.length > 1) { hal.push(cur.slice(0, -1)); cur = [cur[cur.length - 1]]; }
+    hal.push(cur);
+    const brk = hal.slice(0, -1).map(p => pg[p[p.length - 1]][1]);
+    SpreadsheetApp.flush();
+    let b = ambilUlang_(['https://docs.google.com/spreadsheets/d/' + sid + '/export?format=xlsx',
+      'https://www.googleapis.com/drive/v3/files/' + sid + '/export?mimeType=' + encodeURIComponent('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')], 'File Excel belum berhasil dibuat, silakan klik Excel sekali lagi.');
+    const cm = Object.assign({}, c, { SP_KIRI: Number(c.ST_KIRI) || 0, SP_KANAN: Number(c.ST_KANAN) || 0, SP_ATAS: Number(c.ST_ATAS) || 0, SP_BAWAH: Number(c.ST_BAWAH) || 0 });
+    try { b = xlsxCetak_(b, cm, 'portrait', false, brk); } catch (e) {}
+    logAksi_(u, 'Export Excel', 'Surat Tugas No. ST: ' + key);
+    return { name: 'Surat_Tugas_' + x.TglST + '.xlsx', b64: Utilities.base64Encode(b) };
+  } finally { try { DriveApp.getFileById(sid).setTrashed(true); } catch (e) {} }
 }
 function pimXlsx(t, id, jenis) { // Surat Tugas / SPPD Pimpinan sebagai Excel (kertas Legal portrait, 1 halaman) - disusun lewat Google Sheets sementara
   const d = pimBuat_(t, id, false), c = d.c, x = d.r[0], sp = jenis === 'sp', k = pimCfg_(c), K = c.PIM;
