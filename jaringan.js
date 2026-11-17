@@ -3,7 +3,9 @@
 // Berdiri sendiri, tidak mengubah app.js. Deteksi: status perangkat (online/offline) + cek ke server aplikasi bila permintaan gagal.
 (function () {
   const LAMBAT_MS = 8000, ULANG_MS = 5000;
-  let offline = false, timer = null, jalan = 0, tLambat = null, tPita = null;
+  let offline = false, timer = null, jalan = 0, jalanDoc = 0, tLambat = null, tPita = null;
+  // aksi pembuatan dokumen (PDF/Excel/Word): memang butuh 10-40 dtk karena Google menyusun file di server - bukan masalah jaringan
+  const DOK = /^(pdf|pdfST|pdfSP|pdfSPB|xlsSPB|exportDoc|kwiPdf|kwiPdfBulan|kwiXlsx|lapPdf|lapXlsx|bkuPdf|exportBkuXlsx|exportRekapXlsx|exportDpaXlsx|exportRegisterXlsx|exportRiwayatXlsx|rrpdPdf|rrpdGenerate|pimXlsx|pimPdfST|pimPdfSP|arsipkanTahun|backupSekarang)$/;
   const css = document.createElement('style');
   css.textContent = '#netTirai{position:fixed;inset:0;z-index:115;background:rgba(2,10,18,.55);backdrop-filter:blur(5px) grayscale(.6);-webkit-backdrop-filter:blur(5px) grayscale(.6);display:none;align-items:center;justify-content:center;padding:16px}'
     + '#netTirai.on{display:flex}'
@@ -64,8 +66,10 @@
   window.fetch = function (input, init) {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     if (!/script\.google(usercontent)?\.com/.test(url) || (init && init.mode === 'no-cors')) return f0.apply(this, arguments);
-    jalan++; if (!tLambat && !offline) tLambat = setTimeout(() => { if (jalan > 0 && !offline) pita('lam', 'progress_activity', 'Jaringan lambat', 'Permintaan butuh waktu lebih lama dari biasanya, mohon tunggu…'); }, LAMBAT_MS);
-    const selesai = () => { jalan = Math.max(0, jalan - 1); if (!jalan) { clearTimeout(tLambat); tLambat = null; const p = document.getElementById('netPita'); if (p && /\blam\b/.test(p.className)) tutupPita(); } };
+    let dok = false; try { if (init && typeof init.body === 'string') dok = DOK.test(JSON.parse(init.body).fn || ''); } catch (e) {}
+    jalan++; if (dok) jalanDoc++;
+    if (!tLambat && !offline) tLambat = setTimeout(() => { if (jalan > 0 && !offline) { if (jalanDoc > 0) pita('lam', 'progress_activity', 'Sedang membuat dokumen…', 'Google menyusun file Anda di server, biasanya 10–40 detik. Mohon tunggu, jangan tutup halaman.'); else pita('lam', 'progress_activity', 'Server sedang sibuk', 'Permintaan butuh waktu lebih lama dari biasanya, mohon tunggu…'); } }, LAMBAT_MS);
+    const selesai = () => { jalan = Math.max(0, jalan - 1); if (dok) jalanDoc = Math.max(0, jalanDoc - 1); if (!jalan) { clearTimeout(tLambat); tLambat = null; const p = document.getElementById('netPita'); if (p && /\blam\b/.test(p.className)) tutupPita(); } };
     return f0.apply(this, arguments).then(r => { selesai(); return r; }, async e => { selesai(); if (!(await ping())) putus(); throw e; });
   };
   if (document.body) pasang(); else addEventListener('DOMContentLoaded', pasang);
