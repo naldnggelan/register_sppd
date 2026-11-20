@@ -114,7 +114,64 @@ function loadingCard(msg,steps){ // animasi loading: logo berdenyut di dalam cin
  $('#app').innerHTML=`<div class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8 ldx" style="min-width:270px"><div class="ldx-ring"><div class="ldx-logo">${lg?`<img src="${esc(lg)}" alt="">`:'<span class="ms" style="font-size:38px;color:var(--accent-text)">assignment_turned_in</span>'}</div></div>
  <div class="font-semibold" style="color:var(--heading)">${esc(msg)}</div><div class="ldx-bar"></div><div class="ldx-step" id="ldxs">${esc((steps||['REGISTER SPPD'])[0])}</div></div></div>`;
  clearInterval(window._ldx);if(steps&&steps.length>1){let i=0;window._ldx=setInterval(()=>{const e=$('#ldxs');if(!e)return clearInterval(window._ldx);i=Math.min(i+1,steps.length-1);e.style.opacity=0;setTimeout(()=>{e.textContent=steps[i];e.style.opacity=1},200)},1400)}}
-function loginView(){warmPing();if(window.Partikel)Partikel.halaman('login');$('#app').innerHTML=`<button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema" style="position:fixed;top:12px;right:12px;z-index:5"><span class="ms" id="thi"></span></button><div id="lw" class="min-h-screen flex items-center justify-center p-4"><div class="glass2 p-8 w-full max-w-md">
+// ===== Lampu interaktif di halaman login: tarik tali -> lampu menyala -> kartu login muncul. Hanya tampilan; proses login (#u, #p, #go, api('login')) tidak diubah. =====
+window._lampOn=false; // status lampu selama halaman belum dimuat ulang (setelah salah sandi, kartu tidak tersembunyi lagi)
+function lampuCss(){if(document.getElementById('lampuCss'))return;const st=document.createElement('style');st.id='lampuCss';st.textContent=`
+#lw.lampmode{gap:clamp(8px,4vw,64px)}
+.lmp-wrap{position:relative;flex:0 0 auto;width:min(270px,64vw);touch-action:none;user-select:none;-webkit-user-select:none}
+.lmp-wrap svg{position:relative;z-index:1;width:100%;height:auto;overflow:visible;display:block;touch-action:none}
+.lmp-hint{position:relative;z-index:1}
+.lmp-wrap::before{content:"";position:absolute;inset:-18% -30% -10% -30%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--accent) 34%,transparent),transparent 72%);opacity:0;transition:opacity 1s ease;pointer-events:none}
+#lw[data-lamp=on] .lmp-wrap::before{opacity:1}
+.lmp-bulb{opacity:.15;transition:opacity .5s ease}
+#lw[data-lamp=on] .lmp-bulb{opacity:1}
+.lmp-halo{opacity:0;transition:opacity .5s}
+#lw[data-lamp=on] .lmp-halo{opacity:1}
+.lmp-pull{cursor:grab;outline:none;touch-action:none}.lmp-pull:active{cursor:grabbing}
+.lmp-pull:focus-visible .lmp-bead{stroke:#fff;stroke-width:3}
+.lmp-hint{display:table;margin:8px auto 0;padding:6px 14px;border-radius:999px;background:rgba(5,15,20,.82);border:1px solid rgba(255,255,255,.18);font-size:12px;font-weight:500;color:#e3f4ef;transition:opacity .6s}
+#lw[data-lamp=on] .lmp-hint{opacity:0}
+#lcard{transition:opacity .8s ease .25s,transform .8s cubic-bezier(.2,.8,.2,1) .25s,visibility 0s}
+#lcard.lampoff{opacity:0;visibility:hidden;transform:translateY(18px) scale(.97);pointer-events:none;transition:opacity .5s ease,transform .5s ease,visibility 0s linear .5s}
+@media(max-width:820px){#lw.lampmode{flex-direction:column;justify-content:flex-start!important;padding-top:1.6rem}.lmp-wrap{width:min(210px,52vw)}}
+@media(prefers-reduced-motion:reduce){#lcard,#lcard.lampoff,.lmp-wrap::before,.lmp-bulb,.lmp-halo,.lmp-hint{transition-duration:.01ms!important;transition-delay:0s!important}}`;document.head.appendChild(st)}
+function lampuHtml(){return `<div class="lmp-wrap"><svg id="lmpSvg" viewBox="0 0 280 400" role="group" aria-label="Lampu meja dengan tali tarik"><defs>
+<radialGradient id="lmpBg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff"/><stop offset=".45" style="stop-color:var(--accent)" stop-opacity=".85"/><stop offset="1" style="stop-color:var(--accent)" stop-opacity="0"/></radialGradient>
+<radialGradient id="lmpHg" cx=".5" cy=".5" r=".5"><stop offset="0" style="stop-color:var(--accent)" stop-opacity=".9"/><stop offset="1" style="stop-color:var(--accent)" stop-opacity="0"/></radialGradient></defs>
+<ellipse cx="140" cy="372" rx="70" ry="12" fill="#02080b" opacity=".7"/><ellipse cx="140" cy="362" rx="56" ry="10" fill="#16282a" stroke="#c9a24a" stroke-width="3"/>
+<line x1="140" y1="356" x2="98" y2="218" stroke="#2b3d3b" stroke-width="9" stroke-linecap="round"/><circle cx="140" cy="354" r="7" fill="#0e1a1b" stroke="#c9a24a" stroke-width="3"/>
+<g id="lmpHead"><line x1="98" y1="218" x2="150" y2="122" stroke="#2b3d3b" stroke-width="8" stroke-linecap="round"/><path d="M98 134 C98 76 128 54 152 54 C178 54 206 78 206 134 Z" fill="#1a2124" stroke="#2c373b" stroke-width="2"/>
+<ellipse cx="152" cy="134" rx="54" ry="9" fill="#0b1214" stroke="#c9a24a" stroke-width="3"/><ellipse class="lmp-bulb" cx="152" cy="136" rx="42" ry="6" fill="url(#lmpBg)"/><circle class="lmp-bulb" cx="152" cy="140" r="17" fill="url(#lmpBg)"/><circle cx="152" cy="131" r="4" fill="#0b1214" stroke="#2c373b"/></g>
+<circle cx="98" cy="218" r="10" fill="#0e1a1b" stroke="#c9a24a" stroke-width="4"/>
+<g class="lmp-pull" id="lmpPull" role="button" tabindex="0" aria-pressed="false" aria-label="Tarik tali untuk menyalakan lampu"><line id="lmpStr" x1="152" y1="131" x2="152" y2="224" stroke="#c9a24a" stroke-width="2" stroke-linecap="round"/>
+<circle id="lmpHalo" class="lmp-halo" cx="152" cy="224" r="20" fill="url(#lmpHg)"/><circle id="lmpGrab" cx="152" cy="224" r="26" fill="transparent"/><circle id="lmpBead" class="lmp-bead" cx="152" cy="224" r="8" fill="#c9a24a" stroke="#f3d27a" stroke-width="1.5"/></g></svg>
+<p class="lmp-hint" id="lmpHint">Tarik tali untuk menyalakan</p></div>`}
+function lampuInit(){
+ const lw=$('#lw'),card=$('#lcard'),pull=$('#lmpPull'),bead=$('#lmpBead'),str=$('#lmpStr'),halo=$('#lmpHalo'),grab=$('#lmpGrab'),head=$('#lmpHead'),svg=$('#lmpSvg'),hint=$('#lmpHint');
+ if(!lw||!card||!pull)return;
+ const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+ let on=!!window._lampOn;
+ const setOn=(v,anim)=>{on=v;window._lampOn=v;lw.dataset.lamp=v?'on':'off';card.classList.toggle('lampoff',!v);if(v)card.removeAttribute('inert');else card.setAttribute('inert','');
+  pull.setAttribute('aria-pressed',v?'true':'false');pull.setAttribute('aria-label',v?'Tarik tali untuk mematikan lampu':'Tarik tali untuk menyalakan lampu');hint.textContent=v?'Tarik lagi untuk mematikan':'Tarik tali untuk menyalakan';
+  if(v&&anim)setTimeout(()=>{const u=$('#u');if(u&&on&&!matchMedia('(pointer:coarse)').matches)u.focus({preventScroll:true})},900)};
+ setOn(on,false);
+ const AX=152,AY=131,RX=152,RY=224,L=RY-AY;let bx=RX,by=RY,vx=0,vy=0,tilt=0,dragging=false,fired=false,raf=0;
+ const render=()=>{const dx=bx-RX,dy=by-RY,tt=Math.max(-10,Math.min(16,dx*.1+dy*.11));tilt+=(tt-tilt)*.35;head.setAttribute('transform','rotate('+tilt.toFixed(2)+' 98 218)');
+  const r=tilt*Math.PI/180,c=Math.cos(r),s2=Math.sin(r),ox=AX-98,oy=AY-218,ax=98+ox*c-oy*s2,ay=218+ox*s2+oy*c;
+  str.setAttribute('x1',ax.toFixed(1));str.setAttribute('y1',ay.toFixed(1));str.setAttribute('x2',bx.toFixed(1));str.setAttribute('y2',by.toFixed(1));
+  [bead,halo,grab].forEach(e=>{e.setAttribute('cx',bx.toFixed(1));e.setAttribute('cy',by.toFixed(1))})};
+ const loop=()=>{raf=0;if(!svg.isConnected)return;if(!dragging){vx+=(RX-bx)*.16;vy+=(RY-by)*.16;vx*=.82;vy*=.82;bx+=vx;by+=vy}render();
+  if(!dragging&&Math.abs(vx)<.02&&Math.abs(vy)<.02&&Math.abs(bx-RX)<.05&&Math.abs(by-RY)<.05&&Math.abs(tilt)<.05){bx=RX;by=RY;tilt=0;render();return}raf=requestAnimationFrame(loop)};
+ const wake=()=>{if(!raf)raf=requestAnimationFrame(loop)},kick=()=>{if(!reduce){vy+=9;wake()}};
+ const toPt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())};
+ pull.addEventListener('pointerdown',e=>{dragging=true;fired=false;vx=vy=0;pull.setPointerCapture(e.pointerId);e.preventDefault();wake()});
+ pull.addEventListener('pointermove',e=>{if(!dragging)return;const p=toPt(e),max=L+64;let dx=p.x-AX,dy=Math.max(L*.6,p.y-AY),d=Math.hypot(dx,dy)||1;if(d>max){dx*=max/d;dy*=max/d;d=max}bx=AX+dx;by=AY+dy;
+  if(!fired&&d>L+36){fired=true;setOn(!on,true)}wake()});
+ pull.addEventListener('pointerup',()=>{if(!dragging)return;dragging=false;if(!fired&&Math.hypot(bx-RX,by-RY)<6){setOn(!on,true);kick()}wake()});
+ pull.addEventListener('pointercancel',()=>{dragging=false;wake()});
+ pull.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setOn(!on,true);kick()}});
+ render()}
+function loginView(){warmPing();lampuCss();if(window.Partikel)Partikel.halaman('login');$('#app').innerHTML=`<button class="btn2" id="th" aria-label="Ganti Tema" title="Ganti Tema" style="position:fixed;top:12px;right:12px;z-index:5"><span class="ms" id="thi"></span></button><div id="lw" class="min-h-screen flex items-center justify-center p-4 lampmode">${lampuHtml()}<div id="lcard" class="glass2 p-8 w-full max-w-md${window._lampOn?'':' lampoff'}">
 <div class="text-center"><div id="lg" style="width:84px;height:84px;margin:0 auto" class="flex items-center justify-center"><div style="background:var(--primary);color:#fff;width:64px;height:64px;border-radius:16px" class="flex items-center justify-center"><span class="ms" style="font-size:34px">assignment_turned_in</span></div></div>
 <div id="lb" class="text-xs font-bold mt-3" style="letter-spacing:.1em;color:var(--accent-text);display:none"></div><h1 id="lt" class="text-2xl font-bold mt-1" style="color:var(--heading)">REGISTER SPPD</h1><p id="ls" style="color:var(--text-2)">Penomoran & Registrasi Surat Tugas / SPPD</p></div>
 <label id="lu" for="u">Username / NIP</label><input id="u" class="inp" autocomplete="username"><label id="lp" for="p">Kata Sandi</label><div style="position:relative"><input id="p" type="password" class="inp" autocomplete="current-password" style="padding-right:2.6rem"><button type="button" id="pv" class="ms" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" style="position:absolute;right:.4rem;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;color:var(--text-2);padding:.3rem;line-height:1">visibility</button></div>
@@ -124,7 +181,7 @@ function loginView(){warmPing();if(window.Partikel)Partikel.halaman('login');$('
   if(!r){if(S._maint){S._maint=false;return}loginView();const iu=$('#u');if(iu){iu.value=uname;iu.focus()}return}
   Object.assign(S,{t:r.t,role:r.role,nama:r.nama});store.set('sppd_t',r.t);fill(r);
   await loginSuccessAnim();shell()};
- $('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#go').onclick=go;$('#p').onkeydown=e=>{if(e.key==='Enter')go()};
+ lampuInit();$('#th').onclick=flip;setTheme(document.documentElement.dataset.theme);$('#go').onclick=go;$('#p').onkeydown=e=>{if(e.key==='Enter')go()};
  $('#pv').onclick=()=>{const ip=$('#p'),show=ip.type==='password';ip.type=show?'text':'password';const b=$('#pv');b.textContent=show?'visibility_off':'visibility';b.title=b.ariaLabel=show?'Sembunyikan kata sandi':'Tampilkan kata sandi'};
  try{applyLogin(JSON.parse(store.get('sppd_login')||'null'))}catch(e){} // pulihkan judul/subjudul tersimpan secara instan, sebelum menunggu jaringan
  try{look(JSON.parse(store.get('sppd_look')||'null'))}catch(e){} // pulihkan warna & latar tersimpan secara instan juga (sebelumnya hanya teks yang dipulihkan dari cache, warna & logo selalu menunggu publicInfo() - itu sebabnya terasa lama di HP/koneksi lambat)
