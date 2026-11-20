@@ -67,7 +67,7 @@ function keluarTanya(){ // pesan konfirmasi Keluar: gembok menutup, lalu layar p
   b.innerHTML='<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="#22c55e"/><path class="kxck" stroke="#22c55e" d="M7.5 12.5l3 3 6-6.5"/></svg><b class="kxt1">Anda telah keluar</b><small>Data Anda aman</small>';
   document.body.appendChild(b);logout();
   setTimeout(()=>{b.classList.add('out');setTimeout(()=>b.remove(),450)},1700)}}
-async function logout(){const t=S.t;clearInterval(window._pv);store.del('sppd_t');store.del('sppd_v');store.del('sppd_boot');charts.forEach(c=>c.destroy());charts=[];document.querySelectorAll('.modal').forEach(m=>m.remove());S=S0();loginView();if(t)api('logout',t).catch(()=>{})}
+async function logout(){const t=S.t;clearInterval(window._pv);store.del('sppd_t');store.del('sppd_v');store.del('sppd_boot');charts.forEach(c=>c.destroy());charts=[];document.querySelectorAll('.modal').forEach(m=>m.remove());S=S0();window._lampOn=false;loginView();if(t)api('logout',t).catch(()=>{})}
 const izin=k=>{if(S.role==='Super Admin')return true;const h=(S.akses||{})[S.role];return!(Array.isArray(h)&&h.includes(k))}, // Hak Akses Fitur: false = fitur disembunyikan Super Admin untuk peran ini (bawaan: semua tampil)
  BIDX=()=>sup()?BID:[S.bidang],adm=()=>S.role==='Admin'||S.role==='Super Admin',sup=()=>S.role==='Super Admin',dpaRO=()=>['Kasubag Keuangan','KABID','KASI','SEKRETARIS'].includes(S.role); // Kasubag Keuangan: DPA hanya bisa dilihat, tidak bisa diubah
 const dl=(u,n)=>{const A=document.createElement('a');A.href=u;A.download=n;document.body.appendChild(A);A.click();A.remove()};
